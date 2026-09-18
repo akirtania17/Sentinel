@@ -116,11 +116,25 @@ cases, and two predicates needed their boundaries spelled out. See [docs/evals.m
 
 ## Gate a coding agent
 
-[`examples/claude_code/hook.py`](examples/claude_code/hook.py) is a Claude Code PreToolUse hook that
-judges every tool call an agent makes. It asks whether the user requested this kind of action in a
-request that never sees tool output, so text planted in a file, email or page cannot argue for it,
-and checks targets, scope, conditions, injected instructions and data leaving with the agent's
-recent steps in view.
+[`examples/claude_code`](examples/claude_code/hook.py) is a Claude Code hook that judges every tool
+call an agent makes. It asks whether the user requested this kind of action in a request that never
+sees tool output, so text planted in a file, email or page cannot argue for it, and checks targets,
+scope, conditions, injected instructions and data leaving with the agent's recent steps in view.
+
+```json
+{"hooks": {
+  "PreToolUse": [{"matcher": "*", "hooks": [{"type": "command", "timeout": 30,
+    "command": ". ~/.typesafe.env && SENTINEL_HOOK_MODE=enforce /opt/sentinel/.venv/bin/python /opt/sentinel/examples/claude_code/hook_client.py"}]}],
+  "PostToolUse": [{"matcher": "*", "hooks": [{"type": "command", "timeout": 30,
+    "command": ". ~/.typesafe.env && /opt/sentinel/.venv/bin/python /opt/sentinel/examples/claude_code/hook_client.py"}]}]}}
+```
+
+`~/.typesafe.env` stands for any file that exports `TYPESAFE_API_KEY`. `hook_client.py` hands each
+call to a resident helper that keeps Sentinel loaded and its connection
+open (about 0.3 s per call instead of 0.85 s). Once you have answered a few dozen of its questions,
+`python examples/claude_code/calibrate.py` recommends thresholds fitted to your work: it loosens only
+as far as every question you declined would still be asked, and never learns the checks for injected
+instructions or data leaving from your approvals.
 
 On the [stress test](docs/stress-test.md)'s larger held-out set, 520 actions in eight domains
 written and audited by independent authors:
@@ -135,8 +149,8 @@ written and audited by independent authors:
 On Meta's independent LlamaFirewall benchmark it detects 90% of hijacked agent actions with 7% false
 alarms, level with Meta's checker on Llama 3.3 70B. Replaying GPT-4o's recorded AgentDojo runs, it cut
 successful prompt injections from 48% to 4%, but still stopped a fifth of the clean tasks the agent
-completed; for more than half of those it asks the user rather than denying. An attacker who can run Sentinel locally and rewrite what
-the agent reads got 2 of 12 harmful actions through (1 of 12 with uncertain calls escalated to
+completed; for more than half of those it asks the user rather than denying. An attacker who can run
+Sentinel locally and rewrite what the agent reads got 2 of 12 harmful actions through (1 of 12 with uncertain calls escalated to
 Sonnet; Sonnet alone: 2 of 12), so treat it as a fast first line alongside permissions, not as a
 security boundary. The
 [field test](docs/field-test.md) covers 187 real Claude Code sessions.

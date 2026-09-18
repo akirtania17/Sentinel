@@ -384,3 +384,156 @@ def test_lookalike_check_reads_wrapped_tool_output(wrapped: str) -> None:
         "recent_steps": [{"tool": "stripe_list_charges", "arguments": {}, "result": wrapped}],
     }
     assert checks.lookalikes(state) == []
+
+
+# ---- thresholds, outcomes and calibration ----------------------------------------------------------
+
+
+def test_thresholds_from_presets_and_explicit_values() -> None:
+    assert hook.thresholds_from("balanced") == hook.THRESHOLDS["balanced"]
+    assert hook.thresholds_from("requested=0.35,checks=0.7") == {
+        "requested": 0.35,
+        "data": 0.5,
+        "checks": 0.7,
+    }
+    for bad in ("requested=1.5", "speed=0.3", "requested"):
+        with pytest.raises(ValueError, match="SENTINEL_HOOK_THRESHOLDS"):
+            hook.thresholds_from(bad)
+
+
+def test_post_tool_use_only_records_that_the_call_ran(tmp_path: Path) -> None:
+    log = tmp_path / "log.jsonl"
+    call = {"hook_event_name": "PostToolUse", "session_id": "s", "tool_use_id": "t9", "cwd": str(tmp_path)}
+    assert asyncio.run(hook.handle(call, {"SENTINEL_HOOK_LOG": str(log)})) is None
+    record = json.loads(log.read_text())
+    assert (record["event"], record["tool_use_id"], record["failed"]) == ("ran", "t9", False)
+
+
+def _ask(tool_use_id: str, **facts: float) -> dict[str, Any]:
+    return {
+        "event": "decision", "mode": "enforce", "policy": "effects", "context": "on", "decision": "confirm",
+        "tool_use_id": tool_use_id, "facts": _facts("external_communication", **facts), "flags": [],
+        "named_destinations": False,
+    }  # fmt: skip
+
+
+def test_calibration_reads_answers_from_the_log_and_the_transcript(tmp_path: Path) -> None:
+    import calibrate
+
+    transcript = tmp_path / "t.jsonl"
+    rejection = {"type": "tool_result", "tool_use_id": "t2", "is_error": True,
+                 "content": "The user doesn't want to proceed with this tool use. The tool use was rejected."}  # fmt: skip
+    transcript.write_text(_line("user", [rejection]) + "\n")
+    entries = [
+        _ask("t1", requested=0.4) | {"transcript_path": str(transcript)},
+        _ask("t2", requested=0.1) | {"transcript_path": str(transcript)},
+        _ask("t3", requested=0.45),  # neither ran nor rejected: unknown
+        {"event": "ran", "tool_use_id": "t1"},
+    ]
+    log = tmp_path / "log.jsonl"
+    log.write_text("".join(json.dumps(e) + "\n" for e in entries))
+    answers = [r.answer for r in calibrate.load([log])]
+    assert answers == ["approved", "declined", None]
+
+
+def test_calibration_loosens_only_as_far_as_every_declined_question_is_still_asked() -> None:
+    import calibrate
+
+    approved = [calibrate.Record(_facts(requested=p), answer="approved") for p in (0.45, 0.4, 0.35, 0.3)] * 6
+    declined = [calibrate.Record(_facts(requested=p), answer="declined") for p in (0.33, 0.1)]
+    injected = calibrate.Record(_facts(requested=0.9, follows_data_instruction=0.9), decision="deny")
+    result = calibrate.recommend([*approved, *declined, injected])
+    assert result.enough
+    assert result.thresholds["requested"] == 0.35  # 0.33 declined must stay below the threshold
+    assert result.thresholds["data"] == 0.5
+    assert result.approved_asked_before == 24
+    assert result.approved_still_asked == 6  # the 0.3 ones
+    assert calibrate.stops(injected, result.thresholds)
+
+
+def test_calibration_keeps_the_thresholds_without_enough_answers() -> None:
+    import calibrate
+
+    few = [calibrate.Record(_facts(requested=0.4), answer="approved")] * 5
+    result = calibrate.recommend(few)
+    assert not result.enough
+    assert result.thresholds == hook.THRESHOLDS["strict"]
+
+
+# ---- the resident helper -----------------------------------------------------------------------------
+
+
+def test_the_client_hands_calls_to_the_helper(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The client sends the call and the SENTINEL_HOOK_* settings; the helper's answer is printed."""
+    import threading
+
+    import helper
+    import hook_client
+
+    seen: list[tuple[dict[str, Any], dict[str, str], str]] = []
+
+    async def handle(call: Any, env: Any, inner: Any, served_by: str) -> str:
+        seen.append((dict(call), dict(env), served_by))
+        return json.dumps({"verdict": "deny"})
+
+    def fail_closed(error: BaseException, env: Any) -> str:
+        return "failed"
+
+    path = tmp_path / "h.sock"
+    monkeypatch.setenv("SENTINEL_HOOK_IDLE", "0.5")
+    server = threading.Thread(
+        target=helper.serve, args=(path, handle, fail_closed, FakeProvider), daemon=True
+    )
+    server.start()
+    for _ in range(100):
+        if path.exists():
+            break
+        threading.Event().wait(0.02)
+    monkeypatch.setattr(hook_client, "socket_path", lambda: path)
+    monkeypatch.setenv("SENTINEL_HOOK_MODE", "enforce")
+    monkeypatch.setattr(sys, "stdin", type("In", (), {"buffer": _Bytes(b'{"tool_name": "Bash"}')})())
+    assert hook_client.main() == 0
+    assert capsys.readouterr().out == '{"verdict": "deny"}\n'
+    assert seen[0][0] == {"tool_name": "Bash"}
+    assert seen[0][1]["SENTINEL_HOOK_MODE"] == "enforce"
+    assert seen[0][2] == "helper"
+    server.join(timeout=5)
+    assert not path.exists()  # the idle helper removed its socket
+
+
+class _Bytes:
+    def __init__(self, data: bytes) -> None:
+        self.data = data
+
+    def read(self) -> bytes:
+        return self.data
+
+
+def test_the_client_fails_closed_when_the_helper_breaks(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import socket as sockets
+    import threading
+
+    import hook_client
+
+    path = tmp_path / "broken.sock"
+    listener = sockets.socket(sockets.AF_UNIX, sockets.SOCK_STREAM)
+    listener.bind(str(path))
+    listener.listen(1)
+
+    def garbage() -> None:
+        connection, _ = listener.accept()
+        connection.recv(65536)
+        connection.sendall(b"not json")
+        connection.close()
+
+    threading.Thread(target=garbage, daemon=True).start()
+    monkeypatch.setattr(hook_client, "socket_path", lambda: path)
+    monkeypatch.setenv("SENTINEL_HOOK_MODE", "enforce")
+    monkeypatch.setattr(sys, "stdin", type("In", (), {"buffer": _Bytes(b"{}")})())
+    assert hook_client.main() == 0
+    assert json.loads(capsys.readouterr().out)["hookSpecificOutput"]["permissionDecision"] == "deny"
+    listener.close()

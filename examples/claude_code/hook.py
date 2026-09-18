@@ -38,7 +38,9 @@ Policy (`SENTINEL_HOOK_POLICY`):
   noisy for an agent exploring code.
 
 Thresholds (`SENTINEL_HOOK_THRESHOLDS`): `strict` (default, 0.5 everywhere) stops the most harmful
-actions; `balanced` interrupts far fewer legitimate ones for slightly less detection.
+actions; `balanced` interrupts far fewer legitimate ones for slightly less detection; explicit values
+such as `requested=0.35,checks=0.7` start from `strict`. `calibrate.py` recommends explicit values
+from the questions you have answered, which fit your work better than either preset.
 
 When unsure (`SENTINEL_HOOK_UNSURE`): `decide` (default) acts on Sentinel's decision; `ask` asks the
 user whenever a judgment the decision rests on is within 0.2 of its threshold (about 9% of actions
@@ -52,10 +54,14 @@ Mode (`SENTINEL_HOOK_MODE`):
   calls still go through Claude Code's own permission checks; the hook never grants permission. If
   the semantic check is unavailable or the hook fails, the call is denied (fail closed).
 
-Settings (for example `.claude/settings.json`):
+Install `hook_client.py` rather than this file: it passes each call to a resident helper
+(helper.py) that keeps Sentinel loaded and connected, which cuts a call from about 0.85 s to about
+0.3 s, and falls back to running this file. Register it for PostToolUse as well so calibrate.py can
+tell which questions you approved (see hook_client.py for the settings). This file also works as the
+hook command on its own:
 
     {"hooks": {"PreToolUse": [{"matcher": "*", "hooks": [{"type": "command", "timeout": 30,
-      "command": "/path/to/Sentinel/.venv/bin/python /path/to/Sentinel/examples/claude_code/hook.py"}]}]}}
+      "command": "/opt/sentinel/.venv/bin/python /opt/sentinel/examples/claude_code/hook.py"}]}]}}
 
 Environment: `TYPESAFE_API_KEY` (required), the settings above, and `SENTINEL_HOOK_LOG` (the
 JSONL record file; default `.sentinel/claude-code-hook.jsonl` under the session's working directory).
@@ -83,6 +89,7 @@ from checks import lookalikes, user_named_destinations  # noqa: E402
 from gate import Decision, decide  # noqa: E402
 
 from sentinel_runtime import (  # noqa: E402
+    CachingProvider,
     ChoiceResult,
     Evaluation,
     PredicateSet,
@@ -91,6 +98,7 @@ from sentinel_runtime import (  # noqa: E402
     ScoreResult,
 )
 from sentinel_runtime.config import SentinelConfig  # noqa: E402
+from sentinel_runtime.providers import Provider, ProviderRequest, ProviderResponse  # noqa: E402
 
 IMPORTED = time.perf_counter()
 
@@ -301,8 +309,44 @@ def predicates() -> PredicateSet:
     return PredicateSet(name="claude_code", predicates=intent.predicates + context.predicates)
 
 
+class Borrowed:
+    """A provider the resident helper shares between calls: a runtime may use it but not close it."""
+
+    def __init__(self, inner: Provider) -> None:
+        self._inner = inner
+        self.name = inner.name
+        self.limits = inner.limits
+
+    def evaluate(self, request: ProviderRequest) -> ProviderResponse:
+        return self._inner.evaluate(request)
+
+    async def aevaluate(self, request: ProviderRequest) -> ProviderResponse:
+        return await self._inner.aevaluate(request)
+
+    def close(self) -> None:
+        pass
+
+    async def aclose(self) -> None:
+        pass
+
+
+def runtime_for(frozen: Path | None, inner: Provider | None) -> Runtime:
+    """A runtime over the shared provider when there is one, else a new one from the environment,
+    keeping answers in `frozen` when given."""
+    if inner is None:
+        return Runtime.from_env(model=MODEL, config=SentinelConfig(), cache=frozen)
+    provider: Provider = Borrowed(inner)
+    if frozen is not None:
+        provider = CachingProvider(provider, frozen)
+    return Runtime(provider, model=MODEL, config=SentinelConfig())
+
+
 async def judge(
-    state: dict[str, Any], context: str, identity: Mapping[str, Any] | None = None, frozen: Path | None = None
+    state: dict[str, Any],
+    context: str,
+    identity: Mapping[str, Any] | None = None,
+    frozen: Path | None = None,
+    inner: Provider | None = None,
 ) -> Evaluation:
     """One evaluation: the intent and context judgments (two requests, in parallel), or, with context
     off, the `agent_action` predicates.
@@ -312,16 +356,16 @@ async def judge(
     comes up again in the session.
     """
     if context != "on":
-        async with Runtime.from_env(model=MODEL, config=SentinelConfig()) as runtime:
+        async with runtime_for(None, inner) as runtime:
             return await runtime.aevaluate(state, PredicateSet.from_file(WITHOUT_CONTEXT))
     seen = {**state, "user_identity": dict(identity)} if identity else state
-    async with Runtime.from_env(model=MODEL, config=SentinelConfig(), cache=frozen) as runtime:
+    async with runtime_for(frozen, inner) as runtime:
         return await runtime.aevaluate(seen, predicates())
 
 
-def user_identity(cwd: Path) -> dict[str, Any]:
+def user_identity(cwd: Path, env: Mapping[str, str] = os.environ) -> dict[str, Any]:
     """Who the user is: `SENTINEL_HOOK_USER` ("Name <email>"), else git's user.name and user.email."""
-    configured = os.environ.get("SENTINEL_HOOK_USER", "").strip()
+    configured = env.get("SENTINEL_HOOK_USER", "").strip()
     if configured:
         name, _, email = configured.partition("<")
         found = {"name": name.strip(), "emails": [email.rstrip(">").strip()] if email else []}
@@ -352,13 +396,71 @@ def facts(evaluation: Evaluation) -> dict[str, Any]:
     return out
 
 
-def main() -> None:
-    call = json.load(sys.stdin)
-    mode = os.environ.get("SENTINEL_HOOK_MODE", "observe")
-    context = os.environ.get("SENTINEL_HOOK_CONTEXT", "on")
-    policy = os.environ.get("SENTINEL_HOOK_POLICY", "effects")
+def thresholds_from(value: str) -> dict[str, float]:
+    """A preset (`strict`, `balanced`) or explicit values such as `requested=0.4,checks=0.6`, which
+    start from `strict`. `calibrate.py` recommends explicit values from the user's own answers."""
+    if value in THRESHOLDS:
+        return dict(THRESHOLDS[value])
+    out = dict(THRESHOLDS["strict"])
+    for part in filter(None, (p.strip() for p in value.split(","))):
+        key, _, number = part.partition("=")
+        try:
+            threshold = float(number)
+        except ValueError:
+            threshold = -1.0
+        if key.strip() not in out or not 0 < threshold < 1:
+            raise ValueError(
+                f"SENTINEL_HOOK_THRESHOLDS: cannot use {part!r}; use strict, balanced, or values such as "
+                "requested=0.35,checks=0.7 between 0 and 1"
+            )
+        out[key.strip()] = threshold
+    return out
+
+
+def log_path(call: Mapping[str, Any], env: Mapping[str, str]) -> Path:
     cwd = Path(call.get("cwd") or ".")
-    log = Path(os.environ.get("SENTINEL_HOOK_LOG") or cwd / ".sentinel" / "claude-code-hook.jsonl")
+    return Path(env.get("SENTINEL_HOOK_LOG") or cwd / ".sentinel" / "claude-code-hook.jsonl")
+
+
+def append(log: Path, record: Mapping[str, Any]) -> None:
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with log.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record) + "\n")
+
+
+OUTCOME_EVENTS = ("PostToolUse", "PostToolUseFailure")
+"""Events that mean a call ran after the hook let it through or the user approved it."""
+
+
+async def handle(
+    call: Mapping[str, Any], env: Mapping[str, str], inner: Provider | None = None, served_by: str = "process"
+) -> str | None:
+    """Handle one hook event and return what to print, if anything.
+
+    PreToolUse is judged. PostToolUse (and PostToolUseFailure) only records that the call ran, so
+    calibrate.py can tell which questions the user approved. `env` holds the SENTINEL_HOOK_*
+    settings; `inner` is a shared provider when the resident helper serves the call.
+    """
+    started = time.perf_counter()
+    log = log_path(call, env)
+    event = str(call.get("hook_event_name") or "PreToolUse")
+    if event in OUTCOME_EVENTS:
+        append(
+            log,
+            {
+                "ts": datetime.now(UTC).isoformat(),
+                "event": "ran",
+                "failed": event == "PostToolUseFailure",
+                "session_id": call.get("session_id"),
+                "tool_use_id": call.get("tool_use_id"),
+            },
+        )
+        return None
+    mode = env.get("SENTINEL_HOOK_MODE", "observe")
+    context = env.get("SENTINEL_HOOK_CONTEXT", "on")
+    policy = env.get("SENTINEL_HOOK_POLICY", "effects")
+    thresholds = thresholds_from(env.get("SENTINEL_HOOK_THRESHOLDS", "strict"))
+    cwd = Path(call.get("cwd") or ".")
 
     try:
         lines = Path(call.get("transcript_path", "")).read_text(encoding="utf-8").splitlines()
@@ -377,19 +479,21 @@ def main() -> None:
         # The pending call may already be in the transcript; show the steps that came before it.
         state["recent_steps"] = before.get(str(call.get("tool_use_id")), latest)
 
-    identity = user_identity(cwd) if context == "on" else {}
+    identity = user_identity(cwd, env) if context == "on" else {}
     session = str(call.get("session_id") or "")
     frozen = None
-    if session and os.environ.get("SENTINEL_HOOK_FREEZE", "on") == "on":
+    if session and env.get("SENTINEL_HOOK_FREEZE", "on") == "on":
         # Asking again about the same action gets the same answer, so a retried call cannot pass on noise.
         frozen = log.parent / "sessions" / f"{''.join(c for c in session if c.isalnum() or c == '-')}.jsonl"
 
     prepared = time.perf_counter()
     evaluation: Evaluation | None = None
     found: dict[str, Any] | None = None
+    flags: list[str] = []
+    named = False
     try:
         # The strict policy is a rule over the `agent_action` predicates, whatever the context setting.
-        evaluation = asyncio.run(judge(state, "off" if policy == "strict" else context, identity, frozen))
+        evaluation = await judge(state, "off" if policy == "strict" else context, identity, frozen, inner)
     except ProviderError as error:
         decision = Decision("deny", f"semantic check unavailable ({error.kind}); failing closed")
     else:
@@ -399,41 +503,63 @@ def main() -> None:
         elif context != "on":
             decision = decide_without_context(evaluation)
         else:
-            thresholds = THRESHOLDS[os.environ.get("SENTINEL_HOOK_THRESHOLDS", "strict")]
             flags = lookalikes(state)
             named = user_named_destinations({**state, "user_identity": identity})
             decision = decide_for_coding_agent(found, flags, thresholds, named)
-            unsure_mode = os.environ.get("SENTINEL_HOOK_UNSURE", "decide") == "ask"
-            if unsure_mode and unsure(found, decision, flags, thresholds, named):
+            if env.get("SENTINEL_HOOK_UNSURE", "decide") == "ask" and unsure(
+                found, decision, flags, thresholds, named
+            ):
                 decision = Decision("confirm", f"Sentinel is unsure ({decision.reason})")
     finished = time.perf_counter()
 
-    record = {
-        "ts": datetime.now(UTC).isoformat(),
-        "mode": mode,
-        "context": context,
-        "policy": policy,
-        "session_id": call.get("session_id"),
-        "tool_use_id": call.get("tool_use_id"),
-        "user_request": user_request,
-        "proposed_action": action,
-        "decision": decision.action,
-        "reason": decision.reason,
-        "facts": found,
-        "request_ids": [call.request_id for call in evaluation.calls] if evaluation else [],
-        "replayed": [call.replayed for call in evaluation.calls] if evaluation else [],
-        "input_tokens": evaluation.usage.input_tokens if evaluation else None,
-        "evaluation_ms": round(evaluation.latency_ms, 1) if evaluation else None,
-        "import_ms": round((IMPORTED - STARTED) * 1000, 1),
-        "setup_ms": round((prepared - IMPORTED) * 1000, 1),
-        "hook_ms": round((finished - STARTED) * 1000, 1),
-    }
-    log.parent.mkdir(parents=True, exist_ok=True)
-    with log.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(record) + "\n")
-
+    append(
+        log,
+        {
+            "ts": datetime.now(UTC).isoformat(),
+            "event": "decision",
+            "mode": mode,
+            "context": context,
+            "policy": policy,
+            "thresholds": thresholds,
+            "session_id": call.get("session_id"),
+            "tool_use_id": call.get("tool_use_id"),
+            "transcript_path": call.get("transcript_path"),
+            "user_request": user_request,
+            "proposed_action": action,
+            "decision": decision.action,
+            "reason": decision.reason,
+            "facts": found,
+            "flags": flags,
+            "named_destinations": named,
+            "request_ids": [c.request_id for c in evaluation.calls] if evaluation else [],
+            "replayed": [c.replayed for c in evaluation.calls] if evaluation else [],
+            "input_tokens": evaluation.usage.input_tokens if evaluation else None,
+            "evaluation_ms": round(evaluation.latency_ms, 1) if evaluation else None,
+            "served_by": served_by,
+            "import_ms": round((IMPORTED - STARTED) * 1000, 1) if served_by == "process" else 0.0,
+            "setup_ms": round((prepared - started) * 1000, 1),
+            "hook_ms": round((finished - started) * 1000, 1),
+        },
+    )
     if mode == "enforce" and decision.action != "allow":
-        print(json.dumps(verdict(decision)))
+        return json.dumps(verdict(decision))
+    return None
+
+
+def fail_closed(error: BaseException, env: Mapping[str, str]) -> str | None:
+    """What to print when handling failed: Claude Code lets a call through when a hook crashes, so
+    enforce mode denies instead."""
+    if env.get("SENTINEL_HOOK_MODE", "observe") != "enforce":
+        return None
+    reason = f"semantic check failed ({type(error).__name__}); failing closed"
+    return json.dumps(verdict(Decision("deny", reason)))
+
+
+def main() -> None:
+    call = json.load(sys.stdin)
+    output = asyncio.run(handle(call, os.environ))
+    if output:
+        print(output)
 
 
 def verdict(decision: Decision) -> dict[str, Any]:
@@ -448,12 +574,15 @@ def verdict(decision: Decision) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["--serve"]:
+        from helper import serve
+
+        serve(Path(sys.argv[2]), handle, fail_closed)
+        sys.exit(0)
     try:
         main()
     except Exception as error:
-        # Claude Code lets a call through when a hook crashes, so enforce mode denies instead.
-        if os.environ.get("SENTINEL_HOOK_MODE", "observe") == "enforce":
-            reason = f"semantic check failed ({type(error).__name__}); failing closed"
-            print(json.dumps(verdict(Decision("deny", reason))))
-        else:
+        output = fail_closed(error, os.environ)
+        if output is None:
             raise
+        print(output)

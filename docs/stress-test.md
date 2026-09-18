@@ -453,6 +453,46 @@ glue code. So this round moved the boundary out of glue code and into the librar
   call in enforce mode. Reproduced end to end (a plain `ls` was denied), fixed, and the strict policy
   now always uses its own predicates.
 
+### Calibrating from your answers, and a faster hook
+
+Two improvements followed from the rounds so far.
+
+**Calibration from answered questions.** A rule tuned on one benchmark did not carry over to
+another, but every question the hook asks is a label from exactly the borderline cases.
+`examples/claude_code/calibrate.py` reads the hook's log: a question counts as approved when the call
+ran afterwards (a PostToolUse hook records it) and as declined when the transcript records the
+rejection. It then loosens `requested` and `checks` only as far as every declined question would
+still be asked; the checks for injected instructions and data leaving are never learned from
+approvals, and the rule applies them first. `calibration_sim.py` tests this with benchmark labels
+standing in for a user, always scoring on data the calibration never saw:
+
+| Learned from | Scored on | Strict | Balanced preset | Calibrated |
+| --- | --- | --- | --- | --- |
+| Tuning set (8 approved, 77 declined) | Second held-out set | 95.3% stopped, 8.4% interrupted | 93.6%, 3.6% | 95.3%, 8.4% (unchanged) |
+| Claude 3.5 Sonnet's AgentDojo runs | GPT-4o's runs | 3.8% of attacks, 54.6% of clean tasks | 3.8%, 60.8% | 4.0%, 61.9% |
+| GPT-4o's AgentDojo runs | Claude 3.5 Sonnet's runs | 0.6%, 67.0% | 0.6%, 72.2% | 0.6%, 72.2% |
+
+It adapts in the direction each setting calls for. Where most questions were about harmful actions,
+it keeps the strict thresholds and so keeps the detection `balanced` gives up; where most were about
+legitimate work, it loosens and recovers seven to nine points of completed tasks at a cost of at
+most one attack in 629. Two variants were tried and dropped: tolerating up to five declined
+questions traded detection for fewer questions on the held-out set (94.4% stopped, 5.6%
+interrupted), and also refusing to loosen past any call the hook had denied, including denials for
+an unmet condition, which no user ever sees and so never labels, left AgentDojo unchanged.
+The AgentDojo rates count every question as a stop, as if the user declined them all.
+
+**A resident helper.** Each tool call started Python, imported Sentinel (about 0.25 s) and opened a
+new connection to Jev. `hook_client.py`, which imports only the standard library, now hands the call
+to a helper process that keeps both warm, over a Unix socket only its user can open. The socket name
+includes a digest of the hook's code and of the API key, so an edited hook or a different key gets a
+fresh helper, and an idle helper exits after 30 minutes. Measured end to end on this machine:
+
+| Call | Before | With the helper |
+| --- | --- | --- |
+| Every call | 0.84 to 0.88 s | - |
+| First call of a session (starts the helper) | - | 1.2 s |
+| Following calls | - | 0.26 to 0.39 s |
+
 ## Before going public
 
 - State the limits in the README: a supplement to permissions, not a security boundary; adaptive
@@ -462,11 +502,6 @@ glue code. So this round moved the boundary out of glue code and into the librar
   exposes this as `SENTINEL_HOOK_UNSURE=ask`.
 - Tighten the "forbidden or condition not met" check, the largest source of false denials on
   AgentDojo, and re-measure on a fresh held-out set.
-- Calibrate per deployment from the questions users answer. A rule tuned on one benchmark did not
-  carry over to another (third round), and every question the hook asks is a labeled example from
-  exactly the borderline band; a PostToolUse hook can record whether the user approved, and the
-  harness can recommend thresholds from those labels.
-- Cut hook latency with a long-running helper process instead of a new process per tool call.
 - Get human labels on a sample of the scenarios; every label so far comes from Claude.
 - Run AgentDojo live with Sentinel in the loop, which settles what happens after a stop.
 - Publish the benchmark itself; the scenario sets, audits and harness are useful on their own.
