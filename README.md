@@ -131,7 +131,7 @@ cases, and two predicates needed their boundaries spelled out. See [docs/evals.m
 | `sentinel eval stability SUITE` | Measure how much answers move across repeated evaluations |
 | `sentinel bench SET STATE` | Measure batching against one request per predicate |
 | `sentinel models --probe` | List models and what each alias resolves to now |
-| `sentinel schema NAME` | Print the JSON Schema for predicate, fixture, report or event files |
+| `sentinel schema NAME` | Print the JSON Schema for a file format or any command's `--json` output |
 
 Exit codes: 0 success, 1 invalid input, 2 provider error, 3 regression, 4 missing cached responses.
 

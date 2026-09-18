@@ -47,9 +47,11 @@ module-name = "sentinel_runtime"
 dev = [
     "basedpyright>=1.30",
     "hypothesis>=6.100",
+    "jsonschema>=4.26.0",
     "pytest>=8.3",
     "pytest-asyncio>=1.0",
     "ruff>=0.12",
+    "types-jsonschema>=4.26.0.20260518",
     "types-pyyaml>=6.0",
 ]
 

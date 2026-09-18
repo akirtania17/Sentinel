@@ -105,7 +105,7 @@ class Usage(BaseModel):
 class Evaluation(BaseModel):
     """The typed outcome of evaluating a predicate set against one state."""
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", title="Sentinel evaluation (v1)")
 
     evaluation_id: str
     created_at: datetime

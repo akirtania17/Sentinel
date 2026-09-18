@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,7 @@ from sentinel_runtime.providers import (
     score_answer,
 )
 from sentinel_runtime.telemetry import read_events
+from tests.unit._schemas import assert_matches_schema
 
 SET = PredicateSet(
     name="agent",
@@ -208,6 +210,7 @@ def test_sync_failure_carries_partial_results() -> None:
     assert events.events[0].outcome == "error"
     assert events.events[0].error is not None
     assert events.events[0].error.kind == "overloaded"
+    assert_matches_schema("event", json.loads(events.events[0].model_dump_json()))
     assert events.events[0].evaluation == error.partial
 
 
@@ -334,6 +337,8 @@ def test_jsonl_sink_round_trip(tmp_path: Path) -> None:
     events = read_events(path)
     assert [event.outcome for event in events] == ["ok", "error"]
     assert "Summarize my email" not in path.read_text()
+    for line in path.read_text().splitlines():
+        assert_matches_schema("event", json.loads(line))
 
 
 # ---- caching, probing, lifecycle ------------------------------------------------------------------

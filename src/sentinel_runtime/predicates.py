@@ -524,6 +524,50 @@ class PredicateFileV1(BaseModel):
         return out
 
 
+class PredicateSummary(BaseModel):
+    """One predicate as `sentinel predicates show --json` lists it."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: str
+    kind: Literal["noul", "choice", "score"]
+    fingerprint: str
+    default_threshold: float | None
+    """A noul's threshold or a choice's minimum confidence; scores never have one."""
+    tags: list[str]
+
+
+class PredicateListing(BaseModel):
+    """A predicate set's ids, kinds, fingerprints and default thresholds."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", title="Sentinel predicate listing (v1)")
+
+    name: str
+    fingerprint: str
+    predicates: list[PredicateSummary]
+
+    @classmethod
+    def of(cls, predicate_set: PredicateSet) -> "PredicateListing":
+        """Summarize a predicate set."""
+        summaries: list[PredicateSummary] = []
+        for predicate in predicate_set.predicates:
+            default: float | None = None
+            if isinstance(predicate, NoulPredicate):
+                default = predicate.threshold
+            elif isinstance(predicate, ChoicePredicate):
+                default = predicate.min_confidence
+            summaries.append(
+                PredicateSummary(
+                    id=predicate.id,
+                    kind=predicate.kind,
+                    fingerprint=predicate.fingerprint,
+                    default_threshold=default,
+                    tags=list(predicate.tags),
+                )
+            )
+        return cls(name=predicate_set.name, fingerprint=predicate_set.fingerprint, predicates=summaries)
+
+
 _KIND_TAGS = {"noul", "choice", "score"}
 
 

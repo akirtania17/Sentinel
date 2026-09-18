@@ -1,7 +1,6 @@
 """``sentinel predicates``: validate and inspect predicate sets."""
 
-import json
-from typing import Annotated, TypedDict
+from typing import Annotated
 
 import typer
 from rich import box
@@ -17,32 +16,9 @@ from sentinel_runtime.cli._common import (
     load_predicate_set,
 )
 from sentinel_runtime.lint import lint_predicate_set
-from sentinel_runtime.predicates import ChoicePredicate, NoulPredicate, Predicate
+from sentinel_runtime.predicates import PredicateListing
 
 app = typer.Typer(help="Validate and inspect predicate sets.", no_args_is_help=True)
-
-
-class _Row(TypedDict):
-    id: str
-    kind: str
-    fingerprint: str
-    default_threshold: float | None
-    tags: list[str]
-
-
-def _row(predicate: Predicate) -> _Row:
-    default: float | None = None
-    if isinstance(predicate, NoulPredicate):
-        default = predicate.threshold
-    elif isinstance(predicate, ChoicePredicate):
-        default = predicate.min_confidence
-    return {
-        "id": predicate.id,
-        "kind": predicate.kind,
-        "fingerprint": predicate.fingerprint,
-        "default_threshold": default,
-        "tags": list(predicate.tags),
-    }
 
 
 @app.command()
@@ -77,22 +53,21 @@ def show(
     """List a set's predicates with their kinds, fingerprints and default thresholds."""
     with handle_errors():
         predicate_set = load_predicate_set(predicates)
-    rows = [_row(predicate) for predicate in predicate_set.predicates]
+    listing = PredicateListing.of(predicate_set)
     if json_output:
-        document = {"name": predicate_set.name, "fingerprint": predicate_set.fingerprint, "predicates": rows}
-        console.print_json(json.dumps(document))
+        console.print_json(listing.model_dump_json())
         return
     console.print(f"[bold]{escape(predicate_set.name)}[/]  {predicate_set.fingerprint}")
     table = Table(box=box.SIMPLE_HEAD, show_edge=False, pad_edge=False)
     for column in ("id", "kind", "fingerprint", "default", "tags"):
         table.add_column(column, no_wrap=True)
-    for row in rows:
-        default = row["default_threshold"]
+    for row in listing.predicates:
+        default = row.default_threshold
         table.add_row(
-            row["id"],
-            row["kind"],
-            row["fingerprint"][:23],
+            row.id,
+            row.kind,
+            row.fingerprint[:23],
             "-" if default is None else f"{default:.2f}",
-            ", ".join(row["tags"]),
+            ", ".join(row.tags),
         )
     console.print(table)

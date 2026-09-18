@@ -29,6 +29,7 @@ from sentinel_runtime.providers import (
     noul_answer,
     score_answer,
 )
+from tests.unit._schemas import assert_matches_schema
 
 PREDICATES = """format: sentinel/predicates/v1
 name: triage
@@ -421,6 +422,7 @@ def test_cli_run_accept_and_gate(suite_dir: Path, tmp_path: Path, monkeypatch: p
     assert "misses" in result.stdout
     assert "7 of 7 replayed from cache" in result.stdout
     assert markdown.read_text().startswith("# Evaluation: triage")
+    assert_matches_schema("report", json.loads(out.read_text()))
 
     gate = runner.invoke(
         app, ["eval", "run", str(suite_dir), "--model", "jev-1.13.0", "--fail-on-regression"]
@@ -443,6 +445,11 @@ def test_cli_run_accept_and_gate(suite_dir: Path, tmp_path: Path, monkeypatch: p
     compared = runner.invoke(app, ["eval", "compare", str(out), str(regressed_path)])
     assert compared.exit_code == 3
     assert "calm_right: urgent was correct and is now wrong" in compared.stdout
+    compared_json = runner.invoke(app, ["eval", "compare", str(out), str(regressed_path), "--json"])
+    assert compared_json.exit_code == 3
+    comparison = json.loads(compared_json.stdout)
+    assert comparison["regressions"]
+    assert_matches_schema("comparison", comparison)
 
 
 def test_cli_offline_miss_lists_cases(suite_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -480,7 +487,9 @@ def test_cli_json_output(suite_dir: Path, monkeypatch: pytest.MonkeyPatch) -> No
     _record_cache(suite_dir)
     result = runner.invoke(app, ["eval", "run", str(suite_dir), "--model", "jev-1.13.0", "--json"])
     assert result.exit_code == 0, result.stderr
-    assert json.loads(result.stdout)["format"] == "sentinel/eval-report/v1"
+    document = json.loads(result.stdout)
+    assert document["format"] == "sentinel/eval-report/v1"
+    assert_matches_schema("report", document)
 
 
 @pytest.mark.parametrize("name", ["evals", "report"])

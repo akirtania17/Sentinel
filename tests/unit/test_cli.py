@@ -12,6 +12,7 @@ from sentinel_runtime.cli import app
 from sentinel_runtime.config import SentinelConfig
 from sentinel_runtime.providers import CachingProvider, FakeProvider, choice_answer, noul_answer, score_answer
 from sentinel_runtime.telemetry import read_events
+from tests.unit._schemas import assert_matches_schema
 
 runner = CliRunner()
 MODEL = "jev-1.13.0"
@@ -118,6 +119,9 @@ def test_evaluate_json_and_events(
         "decision": False,
     }
     assert [event.outcome for event in read_events(events)] == ["ok"]
+    assert_matches_schema("evaluation", document)
+    for line in events.read_text().splitlines():
+        assert_matches_schema("event", json.loads(line))
 
 
 def test_evaluate_select(state_file: Path, predicates_path: Path, tmp_path: Path) -> None:
@@ -241,6 +245,7 @@ def test_predicates_show(predicates_path: Path) -> None:
         "external_side_effect",
     ]
     assert document["predicates"][4]["default_threshold"] is None
+    assert_matches_schema("listing", document)
 
 
 @pytest.mark.parametrize(

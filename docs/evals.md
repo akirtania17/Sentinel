@@ -34,7 +34,8 @@ cases:
   `negation`, `implied_step`, `missing_info`, `unrelated_context`, `adversarial` and `ambiguous`.
 - `source` is `handwritten` or `matrix`. Generated cases start with `reviewed: false` and are not
   scored until a person reviews them (`--include-unreviewed` overrides).
-- Run `sentinel schema evals` for the JSON Schema.
+- Run `sentinel schema evals` for the JSON Schema, `sentinel schema eval-cases` for included case files,
+  and `sentinel schema report` for reports.
 
 ### Creating ground truth
 

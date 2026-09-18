@@ -59,7 +59,7 @@ class ProbabilityShift(BaseModel):
 class Comparison(BaseModel):
     """The difference between two reports and the regression verdict."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, title="Sentinel report comparison (v1)")
 
     tolerance: float
     baseline_fingerprint: str

@@ -1,4 +1,5 @@
 import asyncio
+import json
 from typing import Any
 
 import pytest
@@ -7,6 +8,7 @@ from sentinel_runtime import PredicateSet, Runtime, choice, noul, score
 from sentinel_runtime.bench import run_benchmark
 from sentinel_runtime.config import SentinelConfig
 from sentinel_runtime.providers import FakeProvider, ProviderRequest, choice_answer, noul_answer, score_answer
+from tests.unit._schemas import assert_matches_schema
 
 SET = PredicateSet(
     name="bench",
@@ -46,6 +48,7 @@ def test_benchmark_counts_requests_and_compares_answers() -> None:
     assert report.throughput_evaluations_per_second > 0
     # 2 repeats x (1 batched + 4 sequential + 4 concurrent) + 2 x 2 throughput evaluations
     assert len(provider.requests) == 2 * 9 + 4
+    assert_matches_schema("bench", json.loads(report.model_dump_json()))
 
 
 def test_benchmark_validates_arguments() -> None:
