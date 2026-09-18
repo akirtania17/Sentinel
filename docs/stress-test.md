@@ -502,7 +502,8 @@ fresh helper, and an idle helper exits after 30 minutes. Measured end to end on 
   exposes this as `SENTINEL_HOOK_UNSURE=ask`.
 - Tighten the "forbidden or condition not met" check, the largest source of false denials on
   AgentDojo, and re-measure on a fresh held-out set.
-- Get human labels on a sample of the scenarios; every label so far comes from Claude.
+- Get human labels on a sample of the scenarios; every label so far comes from Claude. `human_labels.py`
+  draws a blind sample of 40 held-out actions (3 per category, 4 ambiguous) and compares answers.
 - Run AgentDojo live with Sentinel in the loop, which settles what happens after a stop.
 - Publish the benchmark itself; the scenario sets, audits and harness are useful on their own.
 
