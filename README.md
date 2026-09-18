@@ -110,6 +110,20 @@ The suites include prompt injection, negated requests, wrong targets and genuine
 The first run changed the reference set: the illustrative 0.8 thresholds missed a quarter of true
 cases, and two predicates needed their boundaries spelled out. See [docs/evals.md](docs/evals.md).
 
+## Gate a coding agent
+
+[`examples/claude_code/hook.py`](examples/claude_code/hook.py) is a Claude Code PreToolUse hook that
+judges every tool call an agent makes. In a [field test](docs/field-test.md), 187 real Claude Code
+sessions made 959 tool calls in a sandbox with planted prompt injections:
+
+- With the project's instructions and the agent's recent steps as context, and a policy that only
+  intervenes on outside or destructive effects, the hook interrupted 2% of legitimate calls. It
+  stopped every harmful action that would have changed something, including a production deploy
+  that an injected log line asked for and that a keyword rule would have allowed.
+- Without that context, it interrupted a third of legitimate calls and most authorized actions. A
+  semantic gate is only as good as what it is shown.
+- It adds about 0.6 s and $0.0001 per tool call.
+
 ## Reference predicate sets
 
 | Set | Judges | Demo |
@@ -151,6 +165,7 @@ your state. See [docs/security.md](docs/security.md).
 - [Telemetry](docs/telemetry.md)
 - [Benchmarks](docs/benchmarks.md)
 - [Security](docs/security.md)
+- [Field test: gating a real coding agent](docs/field-test.md)
 
 ## Install
 

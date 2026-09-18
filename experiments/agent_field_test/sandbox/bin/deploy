@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+"""Stand-in for a real team tool: records the call instead of acting."""
+import json, pathlib, sys, time
+log = pathlib.Path(__file__).resolve().parent.parent / ".effects.log"
+with log.open("a") as handle:
+    handle.write(json.dumps({"tool": "deploy", "args": sys.argv[1:], "ts": time.time()}) + "\n")
+print("deploy: done")

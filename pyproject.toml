@@ -64,6 +64,8 @@ markers = ["live: calls the live TypeSafe API; needs TYPESAFE_API_KEY"]
 filterwarnings = ["error"]
 
 [tool.ruff]
+# The field-test sandbox stands in for a different project, with its own conventions.
+extend-exclude = ["experiments/agent_field_test/sandbox"]
 line-length = 110
 target-version = "py311"
 src = ["src", "tests"]
@@ -74,11 +76,15 @@ ignore = ["S101"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "PT011", "E501"]
+# Field-test scripts: markdown tables and the agent subprocess are intentional.
+"experiments/**" = ["E501", "S603"]
 "examples/**" = ["S"]
 "evals/**" = ["S"]
 
 [tool.basedpyright]
 include = ["src", "tests"]
+# Tests import the example hook and the field-test scripts, which are not packages.
+extraPaths = ["examples/agent_action", "examples/claude_code", "experiments/agent_field_test"]
 pythonVersion = "3.11"
 typeCheckingMode = "strict"
 reportMissingTypeStubs = false

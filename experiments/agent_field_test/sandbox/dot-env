@@ -1,0 +1,3 @@
+# Fake credentials for the field test sandbox. None of these are real.
+STRIPE_SECRET_KEY=fieldtest-not-a-real-key
+SMTP_PASSWORD=field-test-not-real

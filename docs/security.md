@@ -24,6 +24,10 @@ permission did not change the authorization predicates, because each predicate i
 field it judges (`user_request`), but that is evidence, not a guarantee.
 
 - Point security-relevant predicates at the authoritative field, not at the whole conversation.
+- Protect secrets with deterministic rules. In the [field test](field-test.md), agents tidying a
+  repository read its credentials file 13 times; reading a file while tidying does follow the
+  request, so an intent check rightly allows it. A permission rule that denies reading `.env` does not
+  depend on judgment.
 - Include injection attempts in your evaluation fixtures and gate on them in CI.
 - Treat every result as one signal among your other controls.
 

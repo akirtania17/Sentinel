@@ -106,6 +106,11 @@ actions: thresholds belong to the decision a result feeds, not to the predicate.
 157 cases is a small sample, and the matrix negatives are deliberately clear-cut. Expect harder
 negatives in your own traffic to move these numbers, and re-run before changing a threshold.
 
+The [field test](field-test.md) measured how far: on real Claude Code tool calls, which are shell
+commands rather than tidy structured actions, the same predicates judged without context interrupted
+64% of authorized team-tool calls. Build suites from recorded traffic whenever you can, with the
+same state your application will send.
+
 ## Refining predicates
 
 The same first run found 34 misses. Two patterns were wording problems, not model errors: the
