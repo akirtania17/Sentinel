@@ -1,0 +1,150 @@
+name: live
+
+# Runs against the real TypeSafe API with the repository secret. It re-records every evaluation
+# suite's cache and compares the fresh answers with the accepted baselines. When something material
+# changed (a new resolved model, a regression, a non-fragile correctness change, a headline metric
+# moving past the tolerance), it opens a pull request with the refreshed caches; repeat noise alone
+# only shows in the job summary. It never pushes to main and never runs on forks or pull requests.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays 06:17 UTC
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live
+  cancel-in-progress: false
+
+jobs:
+  live:
+    name: live
+    if: github.repository == 'SentinelTracing/Sentinel'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    env:
+      CI: "true"
+      TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+      TOLERANCE: "0.05"
+      # jq over `sentinel eval compare --json`: true when the refresh differs beyond repeat noise.
+      MATERIAL: >-
+        .model_upgrade
+        or (.regressions | length > 0)
+        or ([.changes[] | select(.fragile | not)] | length > 0)
+        or ([.metrics[] | select(.delta == null or .delta > $tol or .delta < -$tol)] | length > 0)
+        or (.cases_added | length > 0)
+        or (.cases_removed | length > 0)
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install
+        run: uv sync --all-groups --locked
+      - name: Require the API key
+        run: |
+          if [ -z "$TYPESAFE_API_KEY" ]; then
+            echo "::error::The TYPESAFE_API_KEY repository secret is not set."
+            exit 1
+          fi
+      - name: Live tests
+        run: uv run pytest -m live
+      - name: Examples (live)
+        run: |
+          uv run python examples/agent_action/main.py --live
+          uv run python examples/output_verification/main.py --live
+          uv run python examples/trace_semantics/main.py --live --events "$RUNNER_TEMP/trace.events.jsonl"
+      - name: Refresh the evaluation suites
+        id: refresh
+        run: |
+          mkdir -p "$RUNNER_TEMP/reports"
+          reports="$RUNNER_TEMP/reports"
+          summary="$reports/summary.md"
+          {
+            echo "Weekly live refresh of the evaluation caches (run [${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}))."
+            echo
+            echo "Merging updates only the response caches. Baselines change only through a reviewed \`sentinel eval accept\`."
+            echo
+            echo '```text'
+            uv run sentinel models --probe
+            echo '```'
+          } > "$summary"
+          failed=0
+          regressed=0
+          material=0
+          for suite in agent_action output_verification trace_semantics; do
+            status=0
+            uv run sentinel eval run "$suite" --refresh --prune --fail-on-regression --tolerance "$TOLERANCE" \
+              --out "$reports/$suite.json" --markdown "$reports/$suite.md" \
+              > "$reports/$suite.txt" 2>&1 || status=$?
+            cat "$reports/$suite.txt"
+            case "$status" in
+              0) verdict="no regression" ;;
+              3) verdict="REGRESSION"; regressed=1 ;;
+              *) verdict="FAILED (exit $status)"; failed=1 ;;
+            esac
+            if [ "$status" -eq 0 ] || [ "$status" -eq 3 ]; then
+              uv run sentinel eval compare "evals/$suite/baseline.json" "$reports/$suite.json" \
+                --json --allow-model-change --tolerance "$TOLERANCE" > "$reports/$suite.compare.json" || true
+              if jq -e --argjson tol "$TOLERANCE" "$MATERIAL" "$reports/$suite.compare.json" > /dev/null; then
+                material=1
+                verdict="$verdict, material change"
+              else
+                verdict="$verdict, repeat noise only"
+              fi
+            fi
+            {
+              echo
+              echo "<details><summary><code>$suite</code>: $verdict</summary>"
+              echo
+              echo '```text'
+              cat "$reports/$suite.txt"
+              echo '```'
+              echo
+              echo "</details>"
+            } >> "$summary"
+          done
+          if [ "$material" -eq 0 ]; then
+            printf '\nNo material change against the baselines, so no pull request was opened.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+          echo "regressed=$regressed" >> "$GITHUB_OUTPUT"
+          echo "material=$material" >> "$GITHUB_OUTPUT"
+          echo "summary=$summary" >> "$GITHUB_OUTPUT"
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: live-reports
+          path: ${{ runner.temp }}/reports
+          if-no-files-found: ignore
+      - name: Open the refresh pull request
+        id: pr
+        if: steps.refresh.outputs.failed == '0' && steps.refresh.outputs.material == '1'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: live/refresh-caches
+          delete-branch: true
+          add-paths: evals/*/cache.jsonl
+          commit-message: Refresh evaluation caches from the live run
+          title: Refresh evaluation caches from the live run
+          body-path: ${{ steps.refresh.outputs.summary }}
+      # Pull requests opened with the workflow token do not trigger CI, but a dispatch does.
+      - name: Run CI on the pull request branch
+        if: steps.pr.outputs.pull-request-operation == 'created' || steps.pr.outputs.pull-request-operation == 'updated'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref live/refresh-caches
+      - name: Fail on regression or error
+        if: steps.refresh.outputs.failed != '0' || steps.refresh.outputs.regressed != '0'
+        run: |
+          echo "::error::A suite regressed against its baseline or failed. See the job summary."
+          exit 1

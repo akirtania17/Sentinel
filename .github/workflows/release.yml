@@ -1,0 +1,81 @@
+name: release
+
+# Publishing a GitHub Release builds the distributions once, publishes them to TestPyPI, then to
+# PyPI, through trusted publishing (no API tokens). Running the workflow by hand is a rehearsal that
+# stops after TestPyPI. The release tag must be `v` followed by the version in pyproject.toml.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build
+    if: github.repository == 'SentinelTracing/Sentinel'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          python-version: "3.12"
+      - name: Check the tag matches the version
+        if: github.event_name == 'release'
+        run: |
+          version="$(uv version --short)"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match version $version in pyproject.toml."
+            exit 1
+          fi
+      - name: Build
+        run: uv build
+      - name: Check the distribution metadata
+        run: uvx twine check --strict dist/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  testpypi:
+    name: publish to TestPyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/sentinel-runtime
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  pypi:
+    name: publish to PyPI
+    needs: testpypi
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/sentinel-runtime
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

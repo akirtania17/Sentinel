@@ -122,7 +122,7 @@ def test_offline_misses_raise(tmp_path: Path) -> None:
     with pytest.raises(CacheMissError) as caught:
         cache.evaluate(_request())
     assert caught.value.keys == [cache_key("typesafe", _request())]
-    assert "--refresh" in str(caught.value)
+    assert "run again with TYPESAFE_API_KEY set and without offline mode" in str(caught.value)
 
 
 def test_record_mode_always_calls_and_compacts(tmp_path: Path) -> None:
@@ -205,3 +205,16 @@ def test_prune_drops_entries_this_session_did_not_use(tmp_path: Path) -> None:
     assert second.prune() == 2
     second.close()
     assert CachingProvider(None, path, mode="offline").size == 2
+
+
+def test_record_mode_keeps_identical_entries(tmp_path: Path) -> None:
+    path = tmp_path / "cache.jsonl"
+    first = CachingProvider(FakeProvider({"a": noul_answer(0.1)}, name="typesafe"), path, mode="record")
+    first.evaluate(_request())
+    first.close()
+    original = path.read_text()
+    again = CachingProvider(FakeProvider({"a": noul_answer(0.1)}, name="typesafe"), path, mode="record")
+    again.evaluate(_request())
+    assert again.recorded == 0
+    again.close()
+    assert path.read_text() == original

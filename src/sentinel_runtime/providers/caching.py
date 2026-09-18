@@ -16,7 +16,8 @@ Modes:
 
 - ``replay``: serve hits; on a miss call the inner provider and record the answer.
 - ``offline``: serve hits; a miss raises ``CacheMissError``. No inner provider is needed.
-- ``record``: always call the inner provider and overwrite the entry.
+- ``record``: always call the inner provider and overwrite the entry (an entry whose answers and
+  resolved model are unchanged is kept as it was, so re-recording does not churn the file).
 """
 
 import json
@@ -192,8 +193,16 @@ class CachingProvider:
             answers={predicate_id: dict(answer) for predicate_id, answer in response.answers.items()},
         )
         with self._lock:
-            self._records[key] = record
             self._used.add(key)
+            previous = self._records.get(key)
+            if (
+                previous is not None
+                and previous.answers == record.answers
+                and previous.model_resolved == record.model_resolved
+            ):
+                # Identical answers: keep the original entry so re-recording does not churn the file.
+                return
+            self._records[key] = record
             self._path.parent.mkdir(parents=True, exist_ok=True)
             with self._path.open("a", encoding="utf-8") as handle:
                 handle.write(_line(record) + "\n")

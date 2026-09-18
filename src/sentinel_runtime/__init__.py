@@ -4,6 +4,8 @@ Define semantic predicates over application state, evaluate them with fast calib
 branch on typed probabilities in ordinary code.
 """
 
+from importlib import metadata as _metadata
+
 from sentinel_runtime.errors import (
     CacheMissError,
     ConfigError,
@@ -48,7 +50,10 @@ from sentinel_runtime.runtime import Runtime
 from sentinel_runtime.state import State
 from sentinel_runtime.telemetry import CallbackSink, EvaluationEvent, JsonlSink, LoggingSink, TelemetrySink
 
-__version__ = "0.1.0.dev0"
+try:
+    __version__ = _metadata.version("sentinel-runtime")
+except _metadata.PackageNotFoundError:  # pragma: no cover - running from a source tree that is not installed
+    __version__ = "0+unknown"
 
 __all__ = [
     "CacheMissError",

@@ -184,6 +184,25 @@ git add evals/agent_action/cache.jsonl evals/agent_action/baseline.json
 `accept` refuses a report produced with a different predicate set than the suite now uses, and one
 with failed cases unless `--force`.
 
+### Weekly live refresh
+
+The `live` workflow runs every Monday and on demand with the repository's `TYPESAFE_API_KEY`
+secret. It runs the live tests and the three examples against the real API, re-records every suite
+with `--refresh --prune`, and compares each fresh report with its baseline. Repeat noise moves most
+answers by 0.01 to 0.06 from week to week, so rewriting every cache line each week would teach
+reviewers to approve without reading. The workflow therefore opens a pull request with the
+refreshed caches only when something material changed:
+
+- the resolved model changed,
+- a case regressed, or a previously correct answer became wrong without being fragile,
+- a headline metric moved by more than the tolerance or became undefined,
+- or cases were added or removed.
+
+Otherwise the job summary and the uploaded reports show the run, and the committed caches stay as
+they are. A regression fails the job after the pull request opens, so the drift is visible in both
+places. Merging the pull request updates only the caches; the baseline changes only through a
+reviewed `sentinel eval accept`.
+
 ## Repeat stability
 
 `sentinel eval stability agent_action --repeats 5 --sample 30` evaluates a sample live several times.

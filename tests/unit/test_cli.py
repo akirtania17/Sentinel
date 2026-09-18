@@ -1,6 +1,7 @@
 """The CLI through its real code paths, using an offline response cache instead of the network."""
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -83,6 +84,7 @@ def test_evaluate_table_from_offline_cache(state_file: Path, predicates_path: Pa
     assert "level 2 of 0-4" in out
     assert "model jev-1.13.0 (requested jev-1.13.0)" in out
     assert "replayed from cache" in out
+    assert re.search(r"\d+ ms when recorded", out)
     assert "…" not in out
 
 

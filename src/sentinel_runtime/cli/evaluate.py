@@ -52,8 +52,13 @@ def render_evaluation(evaluation: Evaluation) -> None:
     console.print(f"model {evaluation.model_resolved} (requested {evaluation.model_requested})", markup=False)
     parts = [f"{usage.requests} request{'s' if usage.requests != 1 else ''}"]
     if usage.input_tokens is not None:
-        parts.append(f"{usage.input_tokens} input tokens")
-    parts.append(f"{evaluation.latency_ms:.0f} ms")
+        parts.append(f"{usage.input_tokens:,} input tokens")
+    if usage.replayed:
+        # A replay takes no time; the latency worth showing is the one measured when it was recorded.
+        recorded = sum(call.latency_ms for call in evaluation.calls)
+        parts.append(f"{recorded:.0f} ms when recorded")
+    else:
+        parts.append(f"{evaluation.latency_ms:.0f} ms")
     if usage.estimated_cost_usd is not None:
         parts.append(f"${usage.estimated_cost_usd:.6f}")
     if usage.replayed:

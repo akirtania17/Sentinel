@@ -78,8 +78,8 @@ class CacheMissError(SentinelError):
         shown = ", ".join(labels[:10])
         suffix = f" and {len(labels) - 10} more" if len(labels) > 10 else ""
         super().__init__(
-            f"{len(keys)} evaluation(s) are not in the cache ({shown}{suffix}). Record them with a live "
-            "provider (for example `sentinel eval run <suite> --refresh`) and commit the cache."
+            f"{len(keys)} evaluation(s) are not in the cache ({shown}{suffix}). To record them, run again "
+            "with TYPESAFE_API_KEY set and without offline mode, then commit the cache."
         )
 
 

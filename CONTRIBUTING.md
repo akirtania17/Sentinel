@@ -18,8 +18,14 @@ uv run ruff check .
 uv run ruff format --check .
 uv run basedpyright
 uv run pytest -m "not live"
+for suite in agent_action output_verification trace_semantics; do
+  uv run sentinel eval run "$suite" --offline --fail-on-regression
+done
 uv build
 ```
+
+CI also installs the built wheel and sdist into clean environments and runs the command line from
+outside the checkout.
 
 ## Secrets
 
@@ -36,7 +42,9 @@ Tests marked `live` call the real TypeSafe API. They are skipped unless `TYPESAF
 TYPESAFE_API_KEY=... uv run pytest -m live
 ```
 
-Normal CI never needs a key. The scheduled live workflow uses the repository secret.
+Normal CI never needs a key. The `live` workflow uses the repository secret: it runs weekly and on
+demand, and opens a pull request with refreshed evaluation caches when the answers changed materially
+(see [docs/evals.md](docs/evals.md#weekly-live-refresh)).
 
 ## Predicates
 
@@ -47,3 +55,13 @@ evaluation run.
 ## Commits
 
 Write focused commits with a clear subject line. Do not commit generated reports or local telemetry.
+
+## Releasing
+
+1. Set `version` in `pyproject.toml`; `sentinel_runtime.__version__` reads it from the installed
+   package metadata.
+2. Optionally rehearse by running the `release` workflow by hand, which publishes to TestPyPI only.
+3. Publish a GitHub Release tagged `v<version>` with the release notes. The `release` workflow
+   checks that the tag matches the version, builds once, and publishes to TestPyPI and then PyPI
+   through trusted publishing. There is no hand-maintained changelog; release notes live in GitHub
+   Releases.

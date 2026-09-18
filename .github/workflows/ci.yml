@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -43,8 +44,42 @@ jobs:
           for suite in agent_action output_verification trace_semantics; do
             uv run sentinel eval run "$suite" --offline --fail-on-regression
           done
+
+  package:
+    name: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
       - name: Build
         run: uv build
+      - name: Check the distribution metadata
+        run: uvx twine check --strict dist/*
+      # Install each distribution into a clean environment and run it from outside the checkout,
+      # so nothing is imported from src/ and only packaged files are available.
+      - name: Install and run the wheel and the sdist
+        working-directory: ${{ runner.temp }}
+        env:
+          REPO: ${{ github.workspace }}
+        run: |
+          for dist in "$REPO"/dist/*.whl "$REPO"/dist/*.tar.gz; do
+            case "$dist" in *.whl) python=3.11 ;; *) python=3.13 ;; esac
+            echo "::group::$(basename "$dist") on Python $python"
+            rm -rf clean
+            uv venv --quiet clean --python "$python"
+            uv pip install --quiet --python clean/bin/python "$dist"
+            clean/bin/sentinel --help > /dev/null
+            clean/bin/sentinel --version
+            clean/bin/python -c "import sentinel_runtime; print(sentinel_runtime.__version__)"
+            clean/bin/sentinel predicates validate "$REPO/predicates/agent_action.yaml"
+            clean/bin/sentinel evaluate "$REPO/examples/agent_action/states/bad.json" \
+              -p "$REPO/predicates/agent_action.yaml" --model jev-1.13.0 \
+              --cache "$REPO/examples/agent_action/cache.jsonl" --offline
+            echo "::endgroup::"
+          done
 
   secrets:
     name: secret scan
