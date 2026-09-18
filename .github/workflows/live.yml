@@ -144,8 +144,8 @@ jobs:
           commit-message: Refresh evaluation caches from the live run
           title: Refresh evaluation caches from the live run
           body-path: ${{ steps.refresh.outputs.summary }}
-      # Pull requests opened with the workflow token do not run CI on their own (GitHub holds the run
-      # as "action required"), but a dispatch does. GitHub does not attach a dispatched run to the
+      # Pull request events from the workflow token do not run CI (GitHub holds the run as "action
+      # required" or fails it with no jobs), but a dispatch does. GitHub does not attach a dispatched run to the
       # pull request's checks, so a comment links to it.
       - name: Run CI on the pull request branch
         if: steps.pr.outputs.pull-request-operation == 'created' || steps.pr.outputs.pull-request-operation == 'updated'
@@ -156,7 +156,7 @@ jobs:
         run: |
           gh workflow run ci.yml --ref live/refresh-caches
           runs="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/ci.yml?query=branch%3Alive%2Frefresh-caches"
-          gh pr comment "$PR" --body "CI was dispatched for \`${SHA:0:7}\`: [runs on this branch]($runs). It does not appear in this pull request's checks."
+          gh pr comment "$PR" --body "CI was dispatched for \`${SHA:0:7}\`: [runs on this branch]($runs). GitHub does not show that run in this pull request's checks. The pull request's own CI run is held or fails without running any jobs, because GitHub does not run workflows for pull request events from the workflow token."
       - name: Fail on regression or error
         if: steps.refresh.outputs.failed != '0' || steps.refresh.outputs.regressed != '0'
         run: |
