@@ -25,6 +25,16 @@ from sentinel_runtime.predicates import (
     noul,
     score,
 )
+from sentinel_runtime.pricing import PricingTable
+from sentinel_runtime.providers import (
+    CachingProvider,
+    FakeProvider,
+    Provider,
+    ProviderLimits,
+    ProviderRequest,
+    ProviderResponse,
+    TypeSafeProvider,
+)
 from sentinel_runtime.results import (
     ChoiceResult,
     Evaluation,
@@ -40,11 +50,13 @@ __version__ = "0.1.0.dev0"
 
 __all__ = [
     "CacheMissError",
+    "CachingProvider",
     "ChoicePredicate",
     "ChoiceResult",
     "ConfigError",
     "ErrorInfo",
     "Evaluation",
+    "FakeProvider",
     "FixtureValidationError",
     "NoulCriteria",
     "NoulPredicate",
@@ -52,14 +64,20 @@ __all__ = [
     "Predicate",
     "PredicateSet",
     "PredicateValidationError",
+    "PricingTable",
+    "Provider",
     "ProviderCall",
     "ProviderError",
+    "ProviderLimits",
+    "ProviderRequest",
+    "ProviderResponse",
     "Result",
     "ScorePredicate",
     "ScoreResult",
     "SentinelError",
     "State",
     "StateError",
+    "TypeSafeProvider",
     "Usage",
     "__version__",
     "choice",

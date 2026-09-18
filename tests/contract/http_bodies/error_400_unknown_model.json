@@ -1,0 +1,13 @@
+{
+  "status": 400,
+  "headers": {
+    "content-type": "application/json",
+    "x-typesafe-request-id": "req_error_400_unknown_model"
+  },
+  "body": {
+    "detail": {
+      "error_type": "api_usage_error",
+      "message": "Unknown model: jev-9.9.9"
+    }
+  }
+}

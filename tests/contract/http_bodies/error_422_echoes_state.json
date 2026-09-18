@@ -1,0 +1,30 @@
+{
+  "status": 422,
+  "headers": {
+    "content-type": "application/json",
+    "x-typesafe-request-id": "req_error_422_echoes_state"
+  },
+  "body": {
+    "detail": [
+      {
+        "type": "missing",
+        "loc": [
+          "body",
+          "model"
+        ],
+        "msg": "Field required",
+        "input": {
+          "state": {
+            "marker": "STATE-MARKER-7f3a"
+          },
+          "questions": {
+            "q": {
+              "type": "noul",
+              "instructions": "Is this a greeting?"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

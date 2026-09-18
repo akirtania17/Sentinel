@@ -1,0 +1,13 @@
+{
+  "status": 529,
+  "headers": {
+    "content-type": "application/json",
+    "x-typesafe-request-id": "req_synthetic_529"
+  },
+  "body": {
+    "detail": {
+      "error_type": "overloaded_error",
+      "message": "TypeSafe is temporarily overloaded."
+    }
+  }
+}

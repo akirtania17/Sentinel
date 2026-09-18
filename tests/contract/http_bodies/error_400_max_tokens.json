@@ -1,0 +1,12 @@
+{
+  "status": 400,
+  "headers": {
+    "content-type": "application/json",
+    "x-typesafe-request-id": "req_error_400_max_tokens"
+  },
+  "body": {
+    "detail": {
+      "error_type": "max_tokens_exceeded"
+    }
+  }
+}

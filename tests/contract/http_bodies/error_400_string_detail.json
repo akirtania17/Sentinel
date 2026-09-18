@@ -1,0 +1,10 @@
+{
+  "status": 400,
+  "headers": {
+    "content-type": "application/json",
+    "x-typesafe-request-id": "req_error_400_string_detail"
+  },
+  "body": {
+    "detail": "Choice question must have at least one choice: q"
+  }
+}
