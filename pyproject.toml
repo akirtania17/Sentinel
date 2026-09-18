@@ -27,6 +27,9 @@ dependencies = [
     "typer>=0.15",
 ]
 
+[project.scripts]
+sentinel = "sentinel_runtime.cli:app"
+
 [project.urls]
 Repository = "https://github.com/SentinelTracing/Sentinel"
 Issues = "https://github.com/SentinelTracing/Sentinel/issues"

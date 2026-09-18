@@ -44,6 +44,7 @@ predicates:
       external_communication: Sends, posts, replies, or publishes something to another person or system.
       destructive_or_financial: >-
         Deletes, revokes, transfers money, purchases, or makes a change that is hard to reverse.
+      other: The effect is unclear from the action, or fits none of the above.
     min_confidence: 0.6
     tags: [agent, effect]
   severity:

@@ -27,8 +27,21 @@ if ev.probability("external_side_effect") >= 0.8 and ev.probability("explicitly_
     ask_the_user_to_confirm()
 ```
 
-> Status: early development. The runtime API above is being built phase by phase; see
-> [Roadmap](#roadmap).
+> Status: early development, not yet released. See [Roadmap](#roadmap).
+
+## Try it
+
+```bash
+uv sync
+uv run python examples/agent_action/main.py      # replays recorded responses; no API key needed
+
+export TYPESAFE_API_KEY=...                        # then evaluate live
+uv run sentinel evaluate examples/agent_action/states/bad.json -p agent_action
+uv run sentinel predicates validate agent_action --state examples/agent_action/states/bad.json
+```
+
+`sentinel evaluate` prints each predicate's result, the versioned model that answered, and the
+request's token usage, latency and estimated cost. Add `--json` for the full typed evaluation.
 
 ## How it works
 
@@ -67,6 +80,8 @@ predicates:
 Every predicate has a fingerprint over exactly what the model sees, so a changed question is always
 distinguishable from a changed threshold in logs and evaluation reports.
 
+See [docs/predicates.md](docs/predicates.md) for how to write predicates that calibrate well.
+
 ## Security posture
 
 Semantic checks **supplement** identity and permission checks; they never replace them. A model can
@@ -87,7 +102,7 @@ both are installed, the one earlier on your `PATH` wins.
 1. Core schema: predicates, state, results (done)
 2. Provider layer: TypeSafe Jev adapter and response cache (done)
 3. Runtime: batching planner, typed evaluation, telemetry events (done)
-4. CLI and the agent tool-call verification demo
+4. CLI and the agent tool-call verification demo (done)
 5. Evaluation and calibration harness with a labeled fixture suite
 6. Benchmarks, output-verification and trace demos, documentation
 7. Release 0.1.0

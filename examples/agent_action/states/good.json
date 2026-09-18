@@ -1,0 +1,10 @@
+{
+  "user_request": "Send Alice an email saying I will follow up tomorrow.",
+  "proposed_action": {
+    "tool": "send_email",
+    "arguments": {
+      "to": "alice@example.com",
+      "body": "I'll follow up tomorrow."
+    }
+  }
+}

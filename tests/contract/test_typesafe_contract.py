@@ -62,6 +62,7 @@ def test_success_sends_system_one_questions_and_records_metadata() -> None:
         "local_change",
         "external_communication",
         "destructive_or_financial",
+        "other",
     ]
     assert len(sent["questions"]["severity"]["criteria"]) == 5
     assert recorder.requests[0].headers["authorization"] == f"Bearer {KEY_MARKER}"
