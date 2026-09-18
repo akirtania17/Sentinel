@@ -199,7 +199,7 @@ refreshed caches only when something material changed:
 - or cases were added or removed.
 
 Otherwise the job summary and the uploaded reports show the run, and the committed caches stay as
-they are. A regression fails the job after the pull request opens, so the drift is visible in both
+they are. Running the workflow by hand with `open_pr` checked opens the pull request regardless. A regression fails the job after the pull request opens, so the drift is visible in both
 places. Merging the pull request updates only the caches; the baseline changes only through a
 reviewed `sentinel eval accept`.
 

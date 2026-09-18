@@ -8,6 +8,11 @@ name: live
 
 on:
   workflow_dispatch:
+    inputs:
+      open_pr:
+        description: Open the refresh pull request even when only repeat noise changed
+        type: boolean
+        default: false
   schedule:
     - cron: "17 6 * * 1" # Mondays 06:17 UTC
 
@@ -63,6 +68,8 @@ jobs:
           uv run python examples/trace_semantics/main.py --live --events "$RUNNER_TEMP/trace.events.jsonl"
       - name: Refresh the evaluation suites
         id: refresh
+        env:
+          OPEN_PR: ${{ inputs.open_pr }}
         run: |
           mkdir -p "$RUNNER_TEMP/reports"
           reports="$RUNNER_TEMP/reports"
@@ -111,7 +118,7 @@ jobs:
               echo "</details>"
             } >> "$summary"
           done
-          if [ "$material" -eq 0 ]; then
+          if [ "$material" -eq 0 ] && [ "$OPEN_PR" != "true" ]; then
             printf '\nNo material change against the baselines, so no pull request was opened.\n' >> "$GITHUB_STEP_SUMMARY"
           fi
           cat "$summary" >> "$GITHUB_STEP_SUMMARY"
@@ -128,7 +135,7 @@ jobs:
           if-no-files-found: ignore
       - name: Open the refresh pull request
         id: pr
-        if: steps.refresh.outputs.failed == '0' && steps.refresh.outputs.material == '1'
+        if: steps.refresh.outputs.failed == '0' && (steps.refresh.outputs.material == '1' || inputs.open_pr)
         uses: peter-evans/create-pull-request@v8
         with:
           branch: live/refresh-caches
