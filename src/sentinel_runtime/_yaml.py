@@ -91,7 +91,13 @@ _Loader.add_constructor("tag:yaml.org,2002:float", _construct_float)
 
 
 class _Dumper(yaml.SafeDumper):
-    """SafeDumper that quotes any string either YAML 1.1 or the 1.2 loader would read as a non-string."""
+    """SafeDumper that quotes any string either YAML 1.1 or the 1.2 loader would read as a non-string.
+
+    It never emits anchors and aliases: files Sentinel writes are meant to be read and reviewed.
+    """
+
+    def ignore_aliases(self, data: Any) -> bool:
+        return True
 
 
 # The dumper quotes a string when its resolvers would read it back as another type. Adding the

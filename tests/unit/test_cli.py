@@ -77,7 +77,7 @@ def test_evaluate_table_from_offline_cache(state_file: Path, predicates_path: Pa
     out = result.stdout
     assert "agent_action  sha256:" in out
     assert "action_matches_intent" in out
-    assert "no (threshold 0.80)" in out
+    assert "no (threshold 0.50)" in out
     assert "external_communication" in out
     assert "accept (min confidence 0.60)" in out
     assert "level 2 of 0-4" in out
@@ -112,7 +112,7 @@ def test_evaluate_json_and_events(
     assert document["results"]["action_matches_intent"] == {
         "kind": "noul",
         "probability": 0.02,
-        "threshold": 0.8,
+        "threshold": 0.5,
         "decision": False,
     }
     assert [event.outcome for event in read_events(events)] == ["ok"]
@@ -231,6 +231,7 @@ def test_predicates_show(predicates_path: Path) -> None:
     assert table.exit_code == 0
     assert "effect_class" in table.stdout
     assert "0.60" in table.stdout
+    assert "0.50" in table.stdout
     document = json.loads(runner.invoke(app, ["predicates", "show", "agent_action", "--json"]).stdout)
     assert document["name"] == "agent_action"
     assert [row["id"] for row in document["predicates"]][:2] == [

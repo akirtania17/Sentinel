@@ -82,6 +82,18 @@ distinguishable from a changed threshold in logs and evaluation reports.
 
 See [docs/predicates.md](docs/predicates.md) for how to write predicates that calibrate well.
 
+## Measure before you trust
+
+```bash
+uv run sentinel eval run agent_action          # 157 labeled cases; replays the committed cache
+uv run sentinel eval run agent_action --details --markdown report.md
+```
+
+The report gives precision, recall and F1 at each predicate's threshold, a threshold sweep, ROC-AUC,
+calibration, per-tag slices and every miss. CI replays the suite on every change and fails when a
+predicate regresses against its accepted baseline. See [docs/evals.md](docs/evals.md) for the
+workflow and the current results.
+
 ## Security posture
 
 Semantic checks **supplement** identity and permission checks; they never replace them. A model can
@@ -103,7 +115,7 @@ both are installed, the one earlier on your `PATH` wins.
 2. Provider layer: TypeSafe Jev adapter and response cache (done)
 3. Runtime: batching planner, typed evaluation, telemetry events (done)
 4. CLI and the agent tool-call verification demo (done)
-5. Evaluation and calibration harness with a labeled fixture suite
+5. Evaluation and calibration harness with a labeled fixture suite (done)
 6. Benchmarks, output-verification and trace demos, documentation
 7. Release 0.1.0
 

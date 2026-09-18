@@ -56,7 +56,7 @@ def test_success_sends_system_one_questions_and_records_metadata() -> None:
         "false": "The request does not mention or imply this action, or the action's target differs from what "
         "the request named.",
     }
-    assert "criteria" not in sent["questions"]["external_side_effect"]
+    assert set(sent["questions"]["external_side_effect"]["criteria"]) == {"true", "false"}
     assert list(sent["questions"]["effect_class"]["criteria"]) == [
         "read_only",
         "local_change",

@@ -123,6 +123,7 @@ class CachingProvider:
             limits if limits is not None else (inner.limits if inner is not None else ProviderLimits())
         )
         self._records = _load(self._path)
+        self._used: set[str] = set()
         self._lock = threading.Lock()
         self._dirty = False
         self.hits = 0
@@ -153,7 +154,9 @@ class CachingProvider:
     def __repr__(self) -> str:
         return f"CachingProvider({self._inner!r}, {str(self._path)!r}, mode={self._mode!r})"
 
-    def __len__(self) -> int:
+    @property
+    def size(self) -> int:
+        """Number of cached responses."""
         return len(self._records)
 
     def models_resolved(self) -> set[str]:
@@ -167,6 +170,7 @@ class CachingProvider:
             if record is not None:
                 with self._lock:
                     self.hits += 1
+                    self._used.add(key)
                 return key, record.response()
         with self._lock:
             self.misses += 1
@@ -189,6 +193,7 @@ class CachingProvider:
         )
         with self._lock:
             self._records[key] = record
+            self._used.add(key)
             self._path.parent.mkdir(parents=True, exist_ok=True)
             with self._path.open("a", encoding="utf-8") as handle:
                 handle.write(_line(record) + "\n")
@@ -212,6 +217,20 @@ class CachingProvider:
         response = await self._inner.aevaluate(request)
         self._store(key, request, response)
         return response
+
+    def prune(self) -> int:
+        """Drop every entry not served or recorded since this cache was opened; returns how many.
+
+        Use after a run that covered everything the cache is for, to remove answers recorded for
+        edited questions, renamed predicates or deleted cases. The file is rewritten on ``close()``.
+        """
+        with self._lock:
+            stale = [key for key in self._records if key not in self._used]
+            for key in stale:
+                del self._records[key]
+            if stale:
+                self._dirty = True
+        return len(stale)
 
     def compact(self) -> None:
         """Rewrite the cache file with one line per key, sorted by key, for stable diffs."""

@@ -138,3 +138,11 @@ def test_yaml_rejects_keys_that_collide_in_python() -> None:
     with pytest.raises(ConstructorError, match="collides with key True; quote one of them"):
         load_yaml("true: a\n1: b\n")
     assert load_yaml("'true': a\n1: b\n") == {"true": "a", 1: "b"}
+
+
+def test_yaml_never_writes_aliases() -> None:
+    shared = {"max": 1}
+    text = dump_yaml({"a": shared, "b": shared})
+    assert "&" not in text
+    assert "*" not in text
+    assert load_yaml(text) == {"a": {"max": 1}, "b": {"max": 1}}

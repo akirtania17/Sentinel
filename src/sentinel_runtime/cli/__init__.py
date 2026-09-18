@@ -5,6 +5,7 @@ from typing import Annotated
 import typer
 
 from sentinel_runtime import __version__
+from sentinel_runtime.cli import evals as _evals
 from sentinel_runtime.cli import predicates as _predicates
 from sentinel_runtime.cli.evaluate import evaluate
 from sentinel_runtime.cli.models import models
@@ -40,5 +41,6 @@ app.command()(evaluate)
 app.command()(schema)
 app.command()(models)
 app.add_typer(_predicates.app, name="predicates")
+app.add_typer(_evals.app, name="eval")
 
 __all__ = ["app"]

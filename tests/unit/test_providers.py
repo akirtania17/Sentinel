@@ -89,7 +89,8 @@ def test_replay_records_misses_and_serves_hits(tmp_path: Path) -> None:
     assert inner.closed
 
     reloaded = CachingProvider(None, path, mode="offline")
-    assert len(reloaded) == 1
+    assert reloaded.size == 1
+    assert bool(reloaded), "an empty or full cache is always truthy"
     assert reloaded.evaluate(_request()).answers == first.answers
     assert reloaded.models_resolved() == {"m-1"}
 
@@ -190,3 +191,17 @@ def test_pricing_defaults_and_overrides() -> None:
     )
     assert custom.cost("jev-1.13.0", 1_000_000, 1_000_000) == pytest.approx(3.0)
     assert "jev-1.13.0" in custom.models()
+
+
+def test_prune_drops_entries_this_session_did_not_use(tmp_path: Path) -> None:
+    path = tmp_path / "cache.jsonl"
+    first = CachingProvider(FakeProvider(name="typesafe"), path)
+    for state in ("one", "two", "three"):
+        first.evaluate(_request(state=state))
+    first.close()
+    second = CachingProvider(FakeProvider(name="typesafe"), path)
+    second.evaluate(_request(state="two"))
+    second.evaluate(_request(state="four"))
+    assert second.prune() == 2
+    second.close()
+    assert CachingProvider(None, path, mode="offline").size == 2
