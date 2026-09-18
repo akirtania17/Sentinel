@@ -1,0 +1,10 @@
+title = "Sentinel secret scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "typesafe-api-key"
+description = "TypeSafe API key"
+regex = '''apikey_[0-9a-f]{36}_[0-9a-f]{64}'''
+keywords = ["apikey_"]

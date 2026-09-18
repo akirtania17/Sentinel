@@ -1,0 +1,7 @@
+# Repository-local Sentinel configuration. Paths are relative to this file.
+[runtime]
+model = "jev-1.13.0"
+
+[paths]
+predicates = "predicates"
+evals = "evals"

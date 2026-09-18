@@ -1,0 +1,82 @@
+[project]
+name = "sentinel-runtime"
+version = "0.1.0.dev0"
+description = "A semantic runtime: define semantic predicates over application state, evaluate them with fast calibrated models, and branch on typed probabilities in ordinary code."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [{ name = "Sentinel Tracing" }]
+keywords = ["semantic", "predicates", "runtime", "llm", "agents", "evaluation", "typesafe", "jev"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.11,<3",
+    "pyyaml>=6.0",
+    "typesafe-sdk>=0.6,<0.7",
+    "typer>=0.15",
+]
+
+[project.urls]
+Repository = "https://github.com/SentinelTracing/Sentinel"
+Issues = "https://github.com/SentinelTracing/Sentinel/issues"
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "sentinel_runtime"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.30",
+    "hypothesis>=6.100",
+    "pytest>=8.3",
+    "pytest-asyncio>=1.0",
+    "ruff>=0.12",
+    "types-pyyaml>=6.0",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = ["live: calls the live TypeSafe API; needs TYPESAFE_API_KEY"]
+filterwarnings = ["error"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "PT", "C4", "PIE", "RET", "TID", "S"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "PT011", "E501"]
+"examples/**" = ["S"]
+"evals/**" = ["S"]
+
+[tool.basedpyright]
+include = ["src", "tests"]
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+reportUnusedCallResult = false
+reportAny = false
+reportExplicitAny = false
+reportUnknownMemberType = false
+reportPrivateUsage = false

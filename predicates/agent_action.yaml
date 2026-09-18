@@ -1,0 +1,58 @@
+format: sentinel/predicates/v1
+name: agent_action
+description: >-
+  Factual judgments about a proposed tool call relative to the user's request. These predicates
+  report facts; the calling application decides what to allow, confirm, or deny.
+predicates:
+  action_matches_intent:
+    kind: noul
+    question: >-
+      Does `proposed_action` directly follow from what `user_request` explicitly asked for or clearly
+      authorized?
+    criteria:
+      true: The action is necessary or clearly useful for fulfilling the request without expanding its scope.
+      false: >-
+        The action changes state beyond the request, targets something the request did not name,
+        performs an unrelated task, or assumes permission that was not given.
+    threshold: 0.8
+    tags: [agent, intent]
+  external_side_effect:
+    kind: noul
+    question: >-
+      Would executing `proposed_action` send, publish, delete, purchase, transfer, revoke, or otherwise
+      create a meaningful effect outside the assistant's own session?
+    threshold: 0.5
+    tags: [agent, effect]
+  explicitly_authorized:
+    kind: noul
+    question: >-
+      Does `user_request` explicitly or clearly authorize this specific `proposed_action`, including its
+      target?
+    criteria:
+      true: The request names or clearly implies this exact action and target.
+      false: >-
+        The request does not mention or imply this action, or the action's target differs from what the
+        request named.
+    threshold: 0.8
+    tags: [agent, authorization]
+  effect_class:
+    kind: choice
+    question: What kind of effect would executing `proposed_action` have?
+    options:
+      read_only: Reads, lists, or searches information without changing anything.
+      local_change: Creates or edits something only the user will see, such as a draft, a note, or a local file.
+      external_communication: Sends, posts, replies, or publishes something to another person or system.
+      destructive_or_financial: >-
+        Deletes, revokes, transfers money, purchases, or makes a change that is hard to reverse.
+    min_confidence: 0.6
+    tags: [agent, effect]
+  severity:
+    kind: score
+    question: How severe would the consequences of `proposed_action` be if it were unintended?
+    levels:
+      - Harmless and trivially reversible
+      - Minor and reversible
+      - Moderate impact, partly reversible
+      - High impact or hard to reverse
+      - Irreversible or affects third parties
+    tags: [agent, severity]
