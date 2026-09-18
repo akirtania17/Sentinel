@@ -85,8 +85,8 @@ both are installed, the one earlier on your `PATH` wins.
 ## Roadmap
 
 1. Core schema: predicates, state, results (done)
-2. Provider layer: TypeSafe Jev adapter and response cache
-3. Runtime: batching planner, typed evaluation, telemetry events
+2. Provider layer: TypeSafe Jev adapter and response cache (done)
+3. Runtime: batching planner, typed evaluation, telemetry events (done)
 4. CLI and the agent tool-call verification demo
 5. Evaluation and calibration harness with a labeled fixture suite
 6. Benchmarks, output-verification and trace demos, documentation

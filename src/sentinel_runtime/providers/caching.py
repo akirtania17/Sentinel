@@ -138,6 +138,11 @@ class CachingProvider:
         return self._limits
 
     @property
+    def inner(self) -> Provider | None:
+        """The wrapped live provider, or ``None`` for an offline cache."""
+        return self._inner
+
+    @property
     def mode(self) -> CacheMode:
         return self._mode
 

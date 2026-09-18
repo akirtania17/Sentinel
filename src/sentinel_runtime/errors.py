@@ -4,7 +4,7 @@ A provider failure is never a semantic result. Every failure to obtain a judgmen
 ``ProviderError`` with a mapped ``kind``, so callers can choose to fail open or fail closed.
 """
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -148,16 +148,18 @@ class ProviderError(SentinelError):
             detail=self.detail,
         )
 
-    def with_partial(self, partial: "Evaluation | None") -> "ProviderError":
-        """Return a copy of this error carrying ``partial`` results."""
-        return ProviderError(
-            self.kind,
-            self.detail,
-            provider=self.provider,
-            retryable=self.retryable,
-            status=self.status,
-            request_id=self.request_id,
-            retry_after_ms=self.retry_after_ms,
-            estimated_tokens=self.estimated_tokens,
-            partial=partial,
-        )
+    def replace(self, **changes: Any) -> "ProviderError":
+        """A copy of this error with ``changes`` applied, for example ``partial=...``."""
+        fields: dict[str, Any] = {
+            "provider": self.provider,
+            "retryable": self.retryable,
+            "status": self.status,
+            "request_id": self.request_id,
+            "retry_after_ms": self.retry_after_ms,
+            "estimated_tokens": self.estimated_tokens,
+            "partial": self.partial,
+        }
+        kind = changes.pop("kind", self.kind)
+        detail = changes.pop("detail", self.detail)
+        fields.update(changes)
+        return ProviderError(kind, detail, **fields)

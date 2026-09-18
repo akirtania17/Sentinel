@@ -44,20 +44,26 @@ from sentinel_runtime.results import (
     ScoreResult,
     Usage,
 )
+from sentinel_runtime.runtime import Runtime
 from sentinel_runtime.state import State
+from sentinel_runtime.telemetry import CallbackSink, EvaluationEvent, JsonlSink, LoggingSink, TelemetrySink
 
 __version__ = "0.1.0.dev0"
 
 __all__ = [
     "CacheMissError",
     "CachingProvider",
+    "CallbackSink",
     "ChoicePredicate",
     "ChoiceResult",
     "ConfigError",
     "ErrorInfo",
     "Evaluation",
+    "EvaluationEvent",
     "FakeProvider",
     "FixtureValidationError",
+    "JsonlSink",
+    "LoggingSink",
     "NoulCriteria",
     "NoulPredicate",
     "NoulResult",
@@ -72,11 +78,13 @@ __all__ = [
     "ProviderRequest",
     "ProviderResponse",
     "Result",
+    "Runtime",
     "ScorePredicate",
     "ScoreResult",
     "SentinelError",
     "State",
     "StateError",
+    "TelemetrySink",
     "TypeSafeProvider",
     "Usage",
     "__version__",

@@ -165,13 +165,14 @@ class _PredicateBase(BaseModel, frozen=True, extra="forbid"):
     version: str | None = None
     """An optional human label. The fingerprint, not this label, identifies model-facing content."""
 
-    def _model_facing(self) -> dict[str, Any]:
+    def model_facing(self) -> dict[str, Any]:
+        """Exactly the content the model sees: kind, question, and criteria, options or levels."""
         raise NotImplementedError
 
     @property
     def fingerprint(self) -> str:
         """``sha256`` over the model-facing fields: kind, question, and criteria, options or levels."""
-        return digest_of(self._model_facing())
+        return digest_of(self.model_facing())
 
     def __hash__(self) -> int:
         return hash((type(self).__name__, self.id, self.fingerprint, canonical_json(self._decision_fields())))
@@ -188,7 +189,7 @@ class NoulPredicate(_PredicateBase, frozen=True):
     threshold: UnitInterval | None = None
     """Default decision threshold: ``decision`` is ``probability >= threshold``."""
 
-    def _model_facing(self) -> dict[str, Any]:
+    def model_facing(self) -> dict[str, Any]:
         return {
             "kind": "noul",
             "question": self.question,
@@ -208,7 +209,7 @@ class ChoicePredicate(_PredicateBase, frozen=True):
     min_confidence: UnitInterval | None = None
     """Default abstention threshold: ``decision`` is the choice when ``confidence >= min_confidence``."""
 
-    def _model_facing(self) -> dict[str, Any]:
+    def model_facing(self) -> dict[str, Any]:
         return {
             "kind": "choice",
             "question": self.question,
@@ -230,7 +231,7 @@ class ScorePredicate(_PredicateBase, frozen=True):
     levels: Levels
     """Level descriptions from lowest (level 0) to highest."""
 
-    def _model_facing(self) -> dict[str, Any]:
+    def model_facing(self) -> dict[str, Any]:
         return {"kind": "score", "question": self.question, "levels": list(self.levels)}
 
 
