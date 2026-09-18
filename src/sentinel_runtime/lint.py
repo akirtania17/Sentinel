@@ -19,10 +19,12 @@ from sentinel_runtime.predicates import (
     PredicateSet,
     ScorePredicate,
 )
+from sentinel_runtime.views import covers, segments
 
 LintCode = Literal[
     "no-state-reference",
     "unresolved-state-path",
+    "unseen-state-path",
     "arithmetic",
     "date-comparison",
     "negation",
@@ -112,6 +114,21 @@ def _resolves(path: str, state: Any) -> bool:
     return True
 
 
+def _view_resolves(path: str, state: Any) -> bool:
+    """Whether a `sees` path selects anything in ``state``; a list matches when any item does."""
+
+    def walk(value: Any, keys: list[str]) -> bool:
+        if not keys:
+            return True
+        if isinstance(value, list):
+            return any(walk(item, keys) for item in cast("list[Any]", value))
+        if not isinstance(value, Mapping) or keys[0] not in value:
+            return False
+        return walk(cast("Mapping[str, Any]", value)[keys[0]], keys[1:])
+
+    return walk(state, segments(path))
+
+
 def lint_predicate(predicate: Predicate, *, state: Any = None) -> list[LintWarning]:
     """Authoring warnings for one predicate, optionally checked against an example ``state``."""
     warnings: list[LintWarning] = []
@@ -133,6 +150,16 @@ def lint_predicate(predicate: Predicate, *, state: Any = None) -> list[LintWarni
         for path in paths:
             if not _resolves(path, state):
                 warn("unresolved-state-path", f"`{path}` does not exist in the example state")
+        for path in predicate.sees or ():
+            if not _view_resolves(path, state):
+                warn("unresolved-state-path", f"`sees` path `{path}` selects nothing in the example state")
+    if predicate.sees is not None:
+        for path in paths:
+            if not covers(predicate.sees, path):
+                warn(
+                    "unseen-state-path",
+                    f"the question names `{path}`, which is outside what this predicate sees (`sees`)",
+                )
 
     if _ARITHMETIC.search(question_text):
         warn(

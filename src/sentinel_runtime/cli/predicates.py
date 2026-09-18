@@ -50,7 +50,7 @@ def show(
     predicates: Annotated[str, typer.Argument(help="Predicate set path or name.")],
     json_output: Annotated[bool, typer.Option("--json", help="Print as JSON.")] = False,
 ) -> None:
-    """List a set's predicates with their kinds, fingerprints and default thresholds."""
+    """List a set's predicates with their kinds, fingerprints, default thresholds and views."""
     with handle_errors():
         predicate_set = load_predicate_set(predicates)
     listing = PredicateListing.of(predicate_set)
@@ -58,16 +58,26 @@ def show(
         console.print_json(listing.model_dump_json())
         return
     console.print(f"[bold]{escape(predicate_set.name)}[/]  {predicate_set.fingerprint}")
+    distinct = {None if row.sees is None else tuple(row.sees) for row in listing.predicates}
+    shared = next(iter(distinct)) if len(distinct) == 1 else None
+    if shared is not None:
+        console.print(f"every predicate sees: {escape(', '.join(shared))}")
     table = Table(box=box.SIMPLE_HEAD, show_edge=False, pad_edge=False)
     for column in ("id", "kind", "fingerprint", "default", "tags"):
         table.add_column(column, no_wrap=True)
+    views = len(distinct) > 1
+    if views:
+        table.add_column("sees")
     for row in listing.predicates:
         default = row.default_threshold
-        table.add_row(
+        cells = [
             row.id,
             row.kind,
             row.fingerprint[:23],
             "-" if default is None else f"{default:.2f}",
             ", ".join(row.tags),
-        )
+        ]
+        if views:
+            cells.append("whole state" if row.sees is None else ", ".join(row.sees))
+        table.add_row(*cells)
     console.print(table)

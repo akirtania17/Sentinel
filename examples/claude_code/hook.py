@@ -33,8 +33,9 @@ Policy (`SENTINEL_HOOK_POLICY`):
 - `effects` (default): intervene only on actions that change something the user did not ask for or
   that reach outside the workspace. Reading, searching, testing and editing the workspace as part
   of the task always proceed.
-- `strict`: `examples/agent_action/gate.py`, which also questions any call that does not clearly
-  follow from the request. Fine for a single proposed action; too noisy for an agent exploring code.
+- `strict`: `examples/agent_action/gate.py` over the `agent_action` predicates, which also questions
+  any call that does not clearly follow from the request. Fine for a single proposed action; too
+  noisy for an agent exploring code.
 
 Thresholds (`SENTINEL_HOOK_THRESHOLDS`): `strict` (default, 0.5 everywhere) stops the most harmful
 actions; `balanced` interrupts far fewer legitimate ones for slightly less detection.
@@ -207,12 +208,6 @@ def steps_by_call(lines: list[str]) -> tuple[dict[str, list[dict[str, Any]]], li
     return before, [step(c) for c in calls[-RECENT_STEPS:]]
 
 
-def without_output(state: dict[str, Any]) -> dict[str, Any]:
-    """The state with every recent step's output removed: nothing an attacker planted in data."""
-    steps = [{"tool": s.get("tool"), "arguments": s.get("arguments")} for s in state.get("recent_steps", [])]
-    return {**state, "recent_steps": steps}
-
-
 CHECKS = ("sends_data_away", "follows_data_instruction", "condition_blocked", "exceeds_scope", "wrong_detail")
 
 
@@ -299,28 +294,29 @@ def decide_without_context(evaluation: Evaluation) -> Decision:
     return Decision("allow", "no unrequested external or destructive effect")
 
 
+def predicates() -> PredicateSet:
+    """Both judgments as one set. `intent.yaml` declares `sees`, so the runtime shows those predicates
+    the state without any tool output (or the user's identity), in a request of their own."""
+    intent, context = PredicateSet.from_file(INTENT), PredicateSet.from_file(CONTEXT)
+    return PredicateSet(name="claude_code", predicates=intent.predicates + context.predicates)
+
+
 async def judge(
     state: dict[str, Any], context: str, identity: Mapping[str, Any] | None = None, frozen: Path | None = None
-) -> list[Evaluation]:
-    """One evaluation without context, or the intent and context evaluations in parallel.
+) -> Evaluation:
+    """One evaluation: the intent and context judgments (two requests, in parallel), or, with context
+    off, the `agent_action` predicates.
 
-    `identity` (who the user is) goes to the context judgment only. With `frozen`, intent judgments
-    are kept in that file and reused whenever the same judgment comes up again in the session.
+    `identity` (who the user is) is added to the state; only the context judgment sees it. With
+    `frozen`, answers are kept in that file and reused whenever the same judgment of the same state
+    comes up again in the session.
     """
     if context != "on":
         async with Runtime.from_env(model=MODEL, config=SentinelConfig()) as runtime:
-            return [await runtime.aevaluate(state, PredicateSet.from_file(WITHOUT_CONTEXT))]
+            return await runtime.aevaluate(state, PredicateSet.from_file(WITHOUT_CONTEXT))
     seen = {**state, "user_identity": dict(identity)} if identity else state
-    async with (
-        Runtime.from_env(model=MODEL, config=SentinelConfig(), cache=frozen) as intent_runtime,
-        Runtime.from_env(model=MODEL, config=SentinelConfig()) as context_runtime,
-    ):
-        return list(
-            await asyncio.gather(
-                intent_runtime.aevaluate(without_output(state), PredicateSet.from_file(INTENT)),
-                context_runtime.aevaluate(seen, PredicateSet.from_file(CONTEXT)),
-            )
-        )
+    async with Runtime.from_env(model=MODEL, config=SentinelConfig(), cache=frozen) as runtime:
+        return await runtime.aevaluate(seen, predicates())
 
 
 def user_identity(cwd: Path) -> dict[str, Any]:
@@ -389,20 +385,19 @@ def main() -> None:
         frozen = log.parent / "sessions" / f"{''.join(c for c in session if c.isalnum() or c == '-')}.jsonl"
 
     prepared = time.perf_counter()
-    evaluations: list[Evaluation] = []
+    evaluation: Evaluation | None = None
     found: dict[str, Any] | None = None
     try:
-        evaluations = asyncio.run(judge(state, context, identity, frozen))
+        # The strict policy is a rule over the `agent_action` predicates, whatever the context setting.
+        evaluation = asyncio.run(judge(state, "off" if policy == "strict" else context, identity, frozen))
     except ProviderError as error:
         decision = Decision("deny", f"semantic check unavailable ({error.kind}); failing closed")
     else:
-        found = {}
-        for evaluation in evaluations:
-            found.update(facts(evaluation))
+        found = facts(evaluation)
         if policy == "strict":
-            decision = decide(evaluations[0])
+            decision = decide(evaluation)
         elif context != "on":
-            decision = decide_without_context(evaluations[0])
+            decision = decide_without_context(evaluation)
         else:
             thresholds = THRESHOLDS[os.environ.get("SENTINEL_HOOK_THRESHOLDS", "strict")]
             flags = lookalikes(state)
@@ -425,10 +420,10 @@ def main() -> None:
         "decision": decision.action,
         "reason": decision.reason,
         "facts": found,
-        "request_ids": [e.calls[0].request_id for e in evaluations],
-        "replayed": [e.usage.replayed for e in evaluations],
-        "input_tokens": sum(e.usage.input_tokens or 0 for e in evaluations) if evaluations else None,
-        "evaluation_ms": round(max(e.latency_ms for e in evaluations), 1) if evaluations else None,
+        "request_ids": [call.request_id for call in evaluation.calls] if evaluation else [],
+        "replayed": [call.replayed for call in evaluation.calls] if evaluation else [],
+        "input_tokens": evaluation.usage.input_tokens if evaluation else None,
+        "evaluation_ms": round(evaluation.latency_ms, 1) if evaluation else None,
         "import_ms": round((IMPORTED - STARTED) * 1000, 1),
         "setup_ms": round((prepared - IMPORTED) * 1000, 1),
         "hook_ms": round((finished - STARTED) * 1000, 1),

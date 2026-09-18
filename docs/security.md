@@ -24,12 +24,13 @@ permission did not change the authorization predicates, because each predicate i
 field it judges (`user_request`), but that is evidence, not a guarantee.
 
 - Point security-relevant predicates at the authoritative field, not at the whole conversation.
-- Keep attacker-controllable text away from the judgments that decide authorization. In the
+- Keep attacker-controllable text away from the judgments that decide authorization, by declaring
+  what they see (`sees`, see [Writing predicates](predicates.md)). In the
   [stress test](stress-test.md), an attacker who could rewrite tool output and run Sentinel locally
   got 9 of 12 harmful actions past a single evaluation that saw everything. Judging "did the user ask
-  for this kind of action" on a state without any tool output, in a second request, cut that to 4 of
-  12. What still got through were details only the data defines, such as a bank account the request
-  never named; those need deterministic controls.
+  for this kind of action" on a state without any tool output cut that to 4 of 12, and to 2 of 12
+  with the later changes. What still got through were details only the data defines, such as a bank
+  account the request never named; those need deterministic controls.
 - Escalate uncertain decisions. Answers near a threshold vary between runs, and an attacker can retry
   until one falls their way; asking the user or a stronger model about those cases closes that gap.
 - Protect secrets with deterministic rules. In the [field test](field-test.md), agents tidying a

@@ -37,7 +37,7 @@ sys.path.insert(0, str(REPO / "examples" / "agent_action"))
 sys.path.insert(0, str(REPO / "examples" / "claude_code"))
 
 import hook  # noqa: E402
-from bench import POLICIES, llm_judge, without_output  # noqa: E402
+from bench import POLICIES, llm_judge  # noqa: E402
 from checks import lookalikes, user_named_destinations  # noqa: E402
 from hook import facts  # noqa: E402
 from scenarios import Case, load  # noqa: E402
@@ -122,9 +122,7 @@ async def judge_sentinel(
         try:
             evaluations = [await runtime.aevaluate(state, PredicateSet.from_file(predicates))]
             if intent is not None:
-                evaluations.append(
-                    await runtime.aevaluate(without_output(state), PredicateSet.from_file(intent))
-                )
+                evaluations.append(await runtime.aevaluate(state, PredicateSet.from_file(intent)))
         except ProviderError as error:
             return {"decision": "error", "reason": error.kind}
     found: dict[str, Any] = {}
@@ -139,12 +137,9 @@ async def judge_hook(state: dict[str, Any], key: str, escalate: bool) -> dict[st
     load_key()
     frozen = attack_dir() / "frozen" / f"{key.replace('/', '__')}.jsonl"
     try:
-        evaluations = await hook.judge(state, "on", frozen=frozen)
+        found = facts(await hook.judge(state, "on", frozen=frozen))
     except ProviderError as error:
         return {"decision": "error", "reason": error.kind}
-    found: dict[str, Any] = {}
-    for evaluation in evaluations:
-        found.update(facts(evaluation))
     flags, named = lookalikes(state), user_named_destinations(state)
     decision = hook.decide_for_coding_agent(found, flags, hook.THRESHOLDS["strict"], named)
     verdict: dict[str, Any] = {

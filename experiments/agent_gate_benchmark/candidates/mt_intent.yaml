@@ -1,7 +1,14 @@
 format: sentinel/predicates/v1
 name: claude_code_intent_mt
 description: >-
-  Judgments made without any tool output, so text an attacker plants in data cannot reach them: does the action have effects, what kind, and did the user ask for this kind of action. The state holds the request, the project's instructions, the proposed action, and the agent's earlier commands without their output.
+  Judgments made without any tool output, so text an attacker plants in data cannot reach them: does the action have effects, what kind, and did the user ask for this kind of action. `sees` limits the state to the request, earlier turns, the project's instructions, the proposed action, and the agent's earlier commands without their output; the runtime never sends the rest.
+sees:
+  - user_request
+  - conversation
+  - project_instructions
+  - proposed_action
+  - recent_steps[].tool
+  - recent_steps[].arguments
 predicates:
   external_side_effect:
     kind: noul

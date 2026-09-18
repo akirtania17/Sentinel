@@ -11,11 +11,12 @@ never decides what the application does.
                                  v
  +-------------------------------------------------------------------------+
  | Runtime                                                                 |
- |  1 validate     predicate set, ids, options, levels                    |
- |  2 canonicalize State: plain-JSON deep copy, optional redaction,       |
+ |  1 validate     predicate set, ids, options, levels                     |
+ |  2 canonicalize State: plain-JSON deep copy, optional redaction,        |
  |                 sha256 digest, size estimate                            |
- |  3 plan         one request unless the token budget forces a split;    |
- |                 oversized states rejected before any network call      |
+ |  3 plan         one request per view (`sees`), split further only when  |
+ |                 the token budget forces it; oversized states rejected   |
+ |                 before any network call                                 |
  |  4 call         Provider: TypeSafeProvider (typesafe-sdk)               |
  |                          CachingProvider(inner, file, mode)             |
  |                          FakeProvider (tests)                           |
@@ -40,6 +41,7 @@ never decides what the application does.
 | Module | Responsibility |
 | --- | --- |
 | `predicates` | Predicate kinds, predicate sets, the `sentinel/predicates/v1` file format, fingerprints |
+| `views` | State paths a predicate may see, and the projection the runtime sends it |
 | `state` | Canonical, immutable-by-convention state with digests and size estimates |
 | `planner` | Packing predicates into requests under the provider's token budget |
 | `providers.base` | The `Provider` protocol and request/response types |
@@ -64,10 +66,15 @@ never decides what the application does.
   error carries the successful results in `partial`.
 - **State is read-only.** The runtime converts the caller's state to a plain-JSON copy before
   redacting, hashing and sending it.
+- **A predicate sees only its view.** A predicate that declares `sees` is sent that projection of
+  the state and nothing else, so text outside it (tool output, for example) cannot reach the
+  judgment. The boundary lives in the predicate file, where it can be reviewed, not in each
+  integration's glue code.
 
 ## Batching and splitting
 
-All predicates for one state go in one request by default. The planner estimates tokens
+All predicates for one state and one view go in one request by default; a set whose predicates
+declare two different views makes two requests, sent concurrently by `aevaluate`. The planner estimates tokens
 conservatively (3.2 characters per token plus a fixed overhead per question and per request) and
 packs against 85% of the provider's limits. It splits only when the estimate exceeds the request
 budget, and it rejects a state that cannot fit with its longest question before sending anything.

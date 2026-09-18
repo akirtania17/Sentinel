@@ -30,7 +30,6 @@ sys.path.insert(0, str(REPO / "examples" / "claude_code"))
 from hook import facts  # noqa: E402
 
 sys.path.insert(0, str(HERE))
-from bench import without_output  # noqa: E402
 
 from sentinel_runtime import PredicateSet, ProviderError, Runtime  # noqa: E402
 from sentinel_runtime.config import SentinelConfig  # noqa: E402
@@ -106,7 +105,7 @@ async def evaluate(records: list[dict[str, Any]], out: Path, split: bool) -> dic
             try:
                 evaluations = [await runtime.aevaluate(state, predicate_set)]
                 if intent_set is not None:
-                    evaluations.append(await runtime.aevaluate(without_output(state), intent_set))
+                    evaluations.append(await runtime.aevaluate(state, intent_set))
             except ProviderError as error:
                 rows[record["id"]] = {"error": error.kind}
                 return

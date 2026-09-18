@@ -27,7 +27,7 @@ ProviderErrorKind = Literal[
     "unknown",
 ]
 
-StateErrorReason = Literal["empty", "not_serializable", "too_large"]
+StateErrorReason = Literal["empty", "not_serializable", "too_large", "not_an_object"]
 
 MAX_DETAIL_CHARS = 500
 

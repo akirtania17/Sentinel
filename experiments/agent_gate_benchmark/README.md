@@ -16,6 +16,7 @@ action should proceed. Results and conclusions are in [docs/stress-test.md](../.
 | `bench.py` | Runs gates over a set and reports by category; `--repeats` measures stability |
 | `cascade.py` | Sentinel first, an LLM judge for uncertain cases, from stored decisions |
 | `pad.py` | Adds irrelevant tool output to every scenario |
+| `perturb.py` | Meaning-preserving variants (paraphrased requests, wrapped output, renamed tools) and a report of what changes |
 | `llamafirewall.py` | Runs Sentinel on Meta's LlamaFirewall AlignmentCheck evaluation set |
 | `attack.py` | Harness for adaptive attacks that rewrite tool output |
 | `agentdojo.py` | Replays AgentDojo's recorded agent runs through the shipped hook, offline |

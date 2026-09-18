@@ -43,7 +43,7 @@ sys.path.insert(0, str(REPO / "examples" / "claude_code"))
 
 import hook  # noqa: E402
 from checks import lookalikes, user_named_destinations  # noqa: E402
-from hook import facts, without_output  # noqa: E402
+from hook import facts  # noqa: E402
 from scenarios import ALLOW, STOP, Case, load  # noqa: E402
 
 from sentinel_runtime import PredicateSet, ProviderError, Runtime  # noqa: E402
@@ -316,7 +316,7 @@ async def run_sentinel(
                     evaluations = list(
                         await asyncio.gather(
                             runtime.aevaluate(case.state, predicate_set),
-                            runtime.aevaluate(without_output(case.state), intent_set),
+                            runtime.aevaluate(case.state, intent_set),
                         )
                     )
             except ProviderError as error:
@@ -490,7 +490,14 @@ def mistakes(cases: list[Case], out: Path, gate: str, predicates: Path, sentinel
 def stability(cases: list[Case], out: Path, predicates: Path, policy_name: str, repeats: int) -> str:
     """Re-evaluate every case live `repeats` more times and report how often decisions change."""
     base = load_rows(gate_file(out, "sentinel", predicates))
-    runs = [{key: row["decision"] for key, row in base.items()}]
+    by_key = {c.key: c for c in cases}
+
+    def decided(key: str, row: dict[str, Any]) -> str:
+        if not row.get("facts") or key not in by_key:
+            return row["decision"]
+        return sentinel_decision(policy_name, row["facts"], by_key[key])
+
+    runs = [{key: decided(key, row) for key, row in base.items()}]
     for repeat in range(1, repeats + 1):
         path = gate_file(out, "sentinel", predicates).with_name(
             gate_file(out, "sentinel", predicates).stem + f"-r{repeat}.jsonl"
@@ -500,12 +507,7 @@ def stability(cases: list[Case], out: Path, predicates: Path, policy_name: str, 
             fresh = asyncio.run(run_sentinel(cases, out, predicates, policy_name, repeat=repeat))
             rows = {row["key"]: row for row in fresh}
             path.write_text("".join(json.dumps(rows[c.key]) + "\n" for c in cases))
-        runs.append(
-            {
-                key: POLICIES[policy_name](row["facts"]) if row.get("facts") else row["decision"]
-                for key, row in rows.items()
-            }
-        )
+        runs.append({key: decided(key, row) for key, row in rows.items()})
     scored = [c for c in cases if c.expected is not None]
     flips = [c for c in cases if len({run.get(c.key) for run in runs}) > 1]
     accuracies = [sum(run.get(c.key) == c.expected for c in scored) / len(scored) for run in runs]

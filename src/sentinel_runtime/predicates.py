@@ -13,6 +13,11 @@ Every predicate has a ``fingerprint``: ``sha256`` over exactly the fields the mo
 question, and criteria, options or levels). Thresholds, tags, descriptions and the optional human
 ``version`` label do not change it, so a changed question is always distinguishable from a changed
 threshold. Choice options are fingerprinted in order, because option order is part of the question.
+
+A predicate may declare ``sees``: the state paths it is shown (see ``sentinel_runtime.views``). The
+runtime sends it only that part of the state, so text elsewhere in the state cannot reach it. A view
+changes the state, not the question, so it is not part of the fingerprint; every cached answer is
+keyed by the exact state its request sent.
 """
 
 from collections.abc import Iterable, Mapping, Sequence
@@ -34,6 +39,7 @@ from pydantic import (
 from sentinel_runtime._yaml import YAMLError, dump_yaml, load_yaml
 from sentinel_runtime.errors import PredicateValidationError
 from sentinel_runtime.hashing import canonical_json, digest_of
+from sentinel_runtime.views import StatePath
 
 PREDICATES_FORMAT = "sentinel/predicates/v1"
 
@@ -164,6 +170,8 @@ class _PredicateBase(BaseModel, frozen=True, extra="forbid"):
     tags: Tags = ()
     version: str | None = None
     """An optional human label. The fingerprint, not this label, identifies model-facing content."""
+    sees: tuple[StatePath, ...] | None = Field(default=None, min_length=1)
+    """The state paths this predicate is shown; ``None`` shows the whole state."""
 
     def model_facing(self) -> dict[str, Any]:
         """Exactly the content the model sees: kind, question, and criteria, options or levels."""
@@ -175,7 +183,8 @@ class _PredicateBase(BaseModel, frozen=True, extra="forbid"):
         return digest_of(self.model_facing())
 
     def __hash__(self) -> int:
-        return hash((type(self).__name__, self.id, self.fingerprint, canonical_json(self._decision_fields())))
+        routing = {**self._decision_fields(), "sees": self.sees}
+        return hash((type(self).__name__, self.id, self.fingerprint, canonical_json(routing)))
 
     def _decision_fields(self) -> dict[str, Any]:
         return {}
@@ -250,6 +259,7 @@ def noul(
     description: str | None = None,
     tags: Iterable[str] = (),
     version: str | None = None,
+    sees: Sequence[str] | None = None,
 ) -> NoulPredicate:
     """Build a yes/no predicate."""
     return NoulPredicate.model_validate(
@@ -261,6 +271,7 @@ def noul(
             "description": description,
             "tags": tuple(tags),
             "version": version,
+            "sees": None if sees is None else tuple(sees),
         }
     )
 
@@ -274,6 +285,7 @@ def choice(
     description: str | None = None,
     tags: Iterable[str] = (),
     version: str | None = None,
+    sees: Sequence[str] | None = None,
 ) -> ChoicePredicate:
     """Build a choice predicate over named options (order is significant)."""
     return ChoicePredicate.model_validate(
@@ -285,6 +297,7 @@ def choice(
             "description": description,
             "tags": tuple(tags),
             "version": version,
+            "sees": None if sees is None else tuple(sees),
         }
     )
 
@@ -297,6 +310,7 @@ def score(
     description: str | None = None,
     tags: Iterable[str] = (),
     version: str | None = None,
+    sees: Sequence[str] | None = None,
 ) -> ScorePredicate:
     """Build a score predicate over ordered levels, lowest first."""
     return ScorePredicate.model_validate(
@@ -307,6 +321,7 @@ def score(
             "description": description,
             "tags": tuple(tags),
             "version": version,
+            "sees": None if sees is None else tuple(sees),
         }
     )
 
@@ -411,6 +426,8 @@ class _BodyBase(BaseModel):
     description: str | None = None
     tags: Tags = ()
     version: str | None = None
+    sees: list[StatePath] | None = Field(default=None, min_length=1)
+    """The state paths this predicate is shown; overrides the file's `sees`."""
 
 
 class NoulBody(_BodyBase):
@@ -447,6 +464,8 @@ class PredicateFileV1(BaseModel):
     format: Literal["sentinel/predicates/v1"]
     name: PredicateId
     description: str | None = None
+    sees: list[StatePath] | None = Field(default=None, min_length=1)
+    """The state paths every predicate in the file is shown, unless it declares its own."""
     predicates: dict[PredicateId, _Body] = Field(min_length=1)
 
     @classmethod
@@ -466,6 +485,8 @@ class PredicateFileV1(BaseModel):
         predicates: list[Predicate] = []
         for predicate_id, body in self.predicates.items():
             fields = body.model_dump(exclude_none=True)
+            if body.sees is None and self.sees is not None:
+                fields["sees"] = list(self.sees)
             try:
                 if isinstance(body, NoulBody):
                     predicates.append(NoulPredicate.model_validate({**fields, "id": predicate_id}))
@@ -481,14 +502,19 @@ class PredicateFileV1(BaseModel):
     def from_set(cls, predicate_set: PredicateSet) -> "PredicateFileV1":
         """Build the file model from a domain ``PredicateSet``."""
         bodies: dict[str, Any] = {}
+        views = {predicate.sees for predicate in predicate_set.predicates}
+        shared = next(iter(views)) if len(views) == 1 else None
         for predicate in predicate_set.predicates:
             data = predicate.model_dump(exclude={"id"})
+            if shared is not None:
+                data.pop("sees", None)
             bodies[predicate.id] = data
         return cls.model_validate(
             {
                 "format": PREDICATES_FORMAT,
                 "name": predicate_set.name,
                 "description": predicate_set.description,
+                "sees": None if shared is None else list(shared),
                 "predicates": bodies,
             }
         )
@@ -498,6 +524,8 @@ class PredicateFileV1(BaseModel):
         out: dict[str, Any] = {"format": self.format, "name": self.name}
         if self.description is not None:
             out["description"] = self.description
+        if self.sees is not None:
+            out["sees"] = list(self.sees)
         predicates: dict[str, Any] = {}
         for predicate_id, body in self.predicates.items():
             entry: dict[str, Any] = {"kind": body.kind, "question": body.question}
@@ -519,6 +547,8 @@ class PredicateFileV1(BaseModel):
                 entry["tags"] = list(body.tags)
             if body.version is not None:
                 entry["version"] = body.version
+            if body.sees is not None and body.sees != self.sees:
+                entry["sees"] = list(body.sees)
             predicates[predicate_id] = entry
         out["predicates"] = predicates
         return out
@@ -535,6 +565,8 @@ class PredicateSummary(BaseModel):
     default_threshold: float | None
     """A noul's threshold or a choice's minimum confidence; scores never have one."""
     tags: list[str]
+    sees: list[str] | None = None
+    """The state paths the predicate is shown; absent when it sees the whole state."""
 
 
 class PredicateListing(BaseModel):
@@ -563,6 +595,7 @@ class PredicateListing(BaseModel):
                     fingerprint=predicate.fingerprint,
                     default_threshold=default,
                     tags=list(predicate.tags),
+                    sees=None if predicate.sees is None else list(predicate.sees),
                 )
             )
         return cls(name=predicate_set.name, fingerprint=predicate_set.fingerprint, predicates=summaries)

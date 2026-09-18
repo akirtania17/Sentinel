@@ -58,10 +58,14 @@ request's token usage, latency and estimated cost. Add `--json` for the full typ
   `choice` (a distribution over named options), or a `score` (a distribution over ordered, described
   levels). Every predicate has a fingerprint over exactly what the model sees, so an edited question
   is always distinguishable from an edited threshold.
-- **One request per state.** Every predicate that judges the same state is sent in a single
-  request. Cost scales with the state, not the number of predicates: twelve questions about a
+- **One request per state.** Every predicate that judges the same state (or the same view of it) is
+  sent in a single request. Cost scales with the state, not the number of predicates: twelve questions about a
   3,100-character document cost 9.5x less and returned 11x sooner than twelve separate requests,
   with the same answers ([benchmarks](docs/benchmarks.md)).
+- **Declared trust boundaries.** A predicate can declare which parts of the state it `sees`. The
+  runtime sends it only that view, so a judgment such as "did the user ask for this" never sees tool
+  output an attacker may have written. In the stress test this boundary is what stopped 10 of 12
+  adaptive attacks.
 - **Typed results.** Probabilities, distributions and confidence, plus the resolved model version,
   token usage, latency and request id. One telemetry event per evaluation.
 - **Measured, not trusted.** An evaluation harness runs predicates against labeled cases and reports

@@ -14,12 +14,14 @@ itself is never stored.
 
 Modes:
 
-- ``replay``: serve hits; on a miss call the inner provider and record the answer.
+- ``replay``: serve hits; on a miss call the inner provider and record the answer. Identical requests
+  in flight at the same time (async) are sent once and share one answer.
 - ``offline``: serve hits; a miss raises ``CacheMissError``. No inner provider is needed.
 - ``record``: always call the inner provider and overwrite the entry (an entry whose answers and
   resolved model are unchanged is kept as it was, so re-recording does not churn the file).
 """
 
+import asyncio
 import json
 import os
 import tempfile
@@ -127,6 +129,7 @@ class CachingProvider:
         self._records = _load(self._path)
         self._used: set[str] = set()
         self._lock = threading.Lock()
+        self._inflight: dict[str, asyncio.Future[ProviderResponse | None]] = {}
         self._dirty = False
         self.hits = 0
         self.misses = 0
@@ -230,8 +233,29 @@ class CachingProvider:
         if cached is not None:
             return cached
         assert self._inner is not None
-        response = await self._inner.aevaluate(request)
+        if self._mode != "replay":
+            response = await self._inner.aevaluate(request)
+            self._store(key, request, response)
+            return response
+        # Identical requests in flight at once are sent once and share the answer, so every
+        # evaluation sees the answer the cache keeps (and the provider is not paid twice).
+        pending = self._inflight.get(key)
+        if pending is not None:
+            shared = await asyncio.shield(pending)
+            if shared is not None:
+                return shared
+            return await self.aevaluate(request)  # the first request failed; try on our own
+        future: asyncio.Future[ProviderResponse | None] = asyncio.get_running_loop().create_future()
+        self._inflight[key] = future
+        try:
+            response = await self._inner.aevaluate(request)
+        except BaseException:
+            future.set_result(None)
+            raise
+        finally:
+            self._inflight.pop(key, None)
         self._store(key, request, response)
+        future.set_result(response)
         return response
 
     def prune(self) -> int:

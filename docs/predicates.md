@@ -91,6 +91,38 @@ Send a JSON object with named fields and reference them in questions with backti
 model then knows exactly which part of the state to judge. Keep the state to what the predicates
 need; unrelated material costs accuracy.
 
+## Views: what a predicate may see
+
+A predicate can declare `sees`, the state paths it is shown. The runtime then sends it only that
+part of the state, in a request of its own (predicates sharing a view share a request). Use it as a
+trust boundary: a judgment that must not be argued with, such as "did the user ask for this", should
+not see text an outsider can write.
+
+```yaml
+format: sentinel/predicates/v1
+name: intent
+sees:                        # every predicate below, unless it declares its own
+  - user_request
+  - proposed_action
+  - recent_steps[].tool      # each step's tool and arguments, never its output
+  - recent_steps[].arguments
+predicates:
+  requested:
+    kind: noul
+    question: Is `proposed_action` part of doing what `user_request` asks?
+```
+
+Paths are dot-separated keys; `[]` marks a list whose items are each narrowed by the rest of the
+path. A path absent from a state selects nothing, and a view that selects nothing at all is a
+`StateError`, never an empty request. `sees` is not part of the fingerprint, because it changes the
+state rather than the question; cached answers are keyed by the exact state each request sent, and
+every `ProviderCall` records that state's digest.
+
+In the [stress test](stress-test.md), this boundary is what held: fresh attackers who could rewrite
+every tool output got 2 of 12 harmful actions past the Claude Code hook, and 10 of the 12 were
+stopped by the one judgment that never sees tool output. The hook's `intent.yaml` declares it this
+way.
+
 ## Keep these in code
 
 The model reads meaning. It is not a calculator or a calendar.
@@ -131,7 +163,8 @@ word.
 | Code | Meaning |
 | --- | --- |
 | `no-state-reference` | The question names no state field (checked with `--state`) |
-| `unresolved-state-path` | A backticked path does not exist in the example state |
+| `unresolved-state-path` | A backticked path, or a `sees` path, does not exist in the example state |
+| `unseen-state-path` | The question names a path outside what the predicate `sees` |
 | `arithmetic` | The question asks for counting or arithmetic |
 | `date-comparison` | The question compares dates or durations |
 | `negation` | A yes/no question is phrased negatively |

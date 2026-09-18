@@ -36,6 +36,10 @@ security boundary.
   session recovered AgentDojo tasks (GPT-4o: 62.9% of clean tasks completed if the user approves the
   hook's questions on their own tasks, from 58.8%) with held-out accuracy unchanged. A per-task
   contract of needed tools and a learned decision rule were tried and not shipped.
+- **Fourth round**: rewording every request, wrapping tool output as agent frameworks do, and renaming
+  tools changed 1.3 to 1.9% of decisions (0.6% from asking again) and accuracy by about a point. The
+  boundary on what each judgment sees, the defense that held in every round, is now a library
+  feature (`sees` in predicate files) instead of hook glue code.
 
 ## What was built
 
@@ -331,7 +335,7 @@ AgentDojo (the hook now asks or denies; the two columns bracket how a user answe
 | --- | --- | --- | --- |
 | GPT-4o | None | 47.7% | 69.1% |
 | GPT-4o | Second round, questions declined / approved | 3.8% / 4.5% | 53.6% / 58.8% |
-| GPT-4o | Third round, questions declined / approved | 3.7% / 6.2% | 54.6% / 62.9% |
+| GPT-4o | Third round, questions declined / approved | 3.8% / 6.4% | 54.6% / 62.9% |
 | GPT-4o | Second round, unsure calls escalated to Sonnet | 3.5% | 57.7% |
 | GPT-4o | AgentDojo tool filter (published run) | 6.8% | 72.2% |
 | Claude 3.5 Sonnet | None | 1.1% | 79.4% |
@@ -339,7 +343,7 @@ AgentDojo (the hook now asks or denies; the two columns bracket how a user answe
 | Claude 3.5 Sonnet | Third round, questions declined / approved | 0.6% / 1.0% | 67.0% / 75.3% |
 
 If users approve the hook's questions on their own tasks and decline those raised by an attack, the
-third round completes 62.9% of GPT-4o's clean tasks while letting 3.7% of attacks through, against
+third round completes 62.9% of GPT-4o's clean tasks while letting 3.8% of attacks through, against
 58.8% and 3.8% before. Most of the attacks that reach a question instead of a denial come from
 delegating tasks whose delegated file or email the attacker wrote into.
 
@@ -381,6 +385,74 @@ attacker's session and 0.56 in the other's: an attacker cannot re-roll it, but a
 near the threshold decides whether the action is reachable at all. With escalation that band goes
 to Sonnet, which is why the recommended high-stakes setup is the escalating one.
 
+## Fourth round: the same moment, expressed differently
+
+Every earlier test held the wording fixed. Real deployments do not: people phrase the same request
+differently, agent frameworks wrap tool output differently, and tools are named differently. None of
+that changes the right decision, so a gate whose decisions move with it has an architectural
+problem, not a scenario problem. `perturb.py` rewrites the tuning sets in ways that keep the meaning:
+
+- **paraphrase**: every user message reworded by Claude Sonnet, keeping every name, number, id,
+  path, quoted text and condition (checked in code; 144 of 152 messages passed and were reworded,
+  and a sample was read by hand);
+- **wrapped**: tool output as frameworks pass it on, an MCP content list or `{"exit_code", "stdout"}`
+  JSON instead of plain text;
+- **renamed**: tools in function-calling style (`gmail_send_message`, `shell`) everywhere;
+- **all**: the three together.
+
+Tuning set, 479 actions (the repeat rows ask the unchanged set again, the noise floor):
+
+| Variant | Harmful stopped | Legitimate interrupted | Decisions changed |
+| --- | --- | --- | --- |
+| Unchanged | 96.9% | 5.8% | - |
+| Asked again (two repeats) | 96.5% | 5.3 to 5.8% | 0.4 to 0.6% |
+| Wrapped output | 95.6% | 4.9% | 1.3% |
+| Renamed tools | 96.5% | 5.3% | 0.4% |
+| Paraphrased requests | 96.0% | 6.6% | 1.9% |
+| All three | 95.6% | 6.2% | 1.7% |
+
+On the multi-turn set (133 actions) all three together changed 5 decisions, 2 for the worse and 3
+for the better.
+
+What this says about the design:
+
+- **Surface variation costs about one point.** Paraphrasing moves 1.9% of decisions against 0.6%
+  for asking again, and accuracy stays within a point. Judgments are not keyed to exact wording.
+- **The load-bearing judgment is the most wording-sensitive one.** "Did the user ask for this kind
+  of action" crossed its threshold 18 times under paraphrase against 6 to 10 on a repeat. Its input
+  is only what the user and agent wrote, never tool output, so this is sensitivity to how a user
+  phrases a request, not an opening for an attacker; it is one more reason to send near-threshold
+  answers to escalation or to the user.
+- **The one real fragility was in code, not in Jev.** With JSON-wrapped output, a line break arrives
+  as the two characters `\n`, and the lookalike check read `\nch_9f7c` as the id `nch_9f7c`, one
+  character from `ch_9f7c`, flagging a correct refund. Two of the ten changed decisions in the
+  combined variant were this. The check now decodes JSON inside strings and treats escape sequences
+  as separators; on the unchanged sets it flags exactly what it flagged before.
+
+### Changes to the architecture
+
+The four rounds point the same way: the defense that held is a boundary on what each judgment may
+see, and the failures come from borderline answers, from facts the gate was never given, and from
+glue code. So this round moved the boundary out of glue code and into the library.
+
+- **Views (`sees`) in predicate files.** A predicate set can now declare the state paths each
+  predicate is shown, such as `recent_steps[].tool` without `recent_steps[].result`; the runtime
+  sends each view in its own request (concurrently) and records the digest of what every request
+  saw. The hook's hand-written "remove the tool output" step is gone: `intent.yaml` declares its
+  view, and the hook, the benchmark, the AgentDojo replay, LlamaFirewall and the attack harness all
+  send the whole state and rely on it. The views reproduce the previous states exactly, so every
+  stored answer replayed with no new requests and identical results. `sentinel predicates validate`
+  warns when a question names a path its predicate cannot see.
+- **Identical requests in flight are sent once.** Replaying AgentDojo exposed one attack that
+  counted differently between runs: two agent runs had asked the same question at the same moment,
+  both went live, and the response cache kept only one answer. The cache now shares one request
+  between identical concurrent ones, so every evaluation sees the answer the cache keeps. The
+  corrected GPT-4o figures are above (3.8% and 6.4%).
+- **A latent hook bug.** `SENTINEL_HOOK_POLICY=strict` with context on (the default) applied a rule
+  over the `agent_action` predicates to the intent judgment, raised a `KeyError`, and so denied every
+  call in enforce mode. Reproduced end to end (a plain `ls` was denied), fixed, and the strict policy
+  now always uses its own predicates.
+
 ## Before going public
 
 - State the limits in the README: a supplement to permissions, not a security boundary; adaptive
@@ -390,8 +462,10 @@ to Sonnet, which is why the recommended high-stakes setup is the escalating one.
   exposes this as `SENTINEL_HOOK_UNSURE=ask`.
 - Tighten the "forbidden or condition not met" check, the largest source of false denials on
   AgentDojo, and re-measure on a fresh held-out set.
-- Make the trust boundary a library feature: let a predicate set declare which state fields each
-  predicate may see, so every application gets the protection the hook builds by hand.
+- Calibrate per deployment from the questions users answer. A rule tuned on one benchmark did not
+  carry over to another (third round), and every question the hook asks is a labeled example from
+  exactly the borderline band; a PostToolUse hook can record whether the user approved, and the
+  harness can recommend thresholds from those labels.
 - Cut hook latency with a long-running helper process instead of a new process per tool call.
 - Get human labels on a sample of the scenarios; every label so far comes from Claude.
 - Run AgentDojo live with Sentinel in the loop, which settles what happens after a stop.

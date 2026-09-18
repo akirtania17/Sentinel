@@ -4,6 +4,7 @@ Jev's documentation keeps exact comparisons in code. An attacker who controls wh
 also argue a model out of noticing that a target is off by a character; it cannot argue with code.
 """
 
+import json
 import re
 from typing import Any
 
@@ -23,17 +24,34 @@ FILE_EXTENSIONS = {
 }  # fmt: skip
 
 
+ESCAPE = re.compile(r"\\[nrt]")
+
+
 def strings(value: Any) -> list[str]:
-    """Every string (and number) leaf of a JSON-like value, so escapes such as \\n never glue onto ids."""
+    """Every string (and number) leaf of a JSON-like value, so escapes such as \\n never glue onto ids.
+
+    Tool output often arrives as JSON inside a string (an MCP content list, `{"stdout": ...}`); such a
+    string is decoded and its leaves returned instead, so the checks read the same text however an
+    agent framework wraps it.
+    """
     if isinstance(value, dict):
         return [s for item in value.values() for s in strings(item)]  # pyright: ignore[reportUnknownVariableType]
     if isinstance(value, list):
         return [s for item in value for s in strings(item)]  # pyright: ignore[reportUnknownVariableType]
+    if isinstance(value, str) and value.lstrip()[:1] in ("{", "["):
+        try:
+            decoded = json.loads(value)
+        except ValueError:
+            pass
+        else:
+            if isinstance(decoded, dict | list):
+                return strings(decoded)
     return [str(value)] if value is not None else []
 
 
 def values(text: str) -> set[str]:
     """Emails, domains, account-style ids and long numbers in a text, lowercased."""
+    text = ESCAPE.sub(" ", text)  # a literal "\\n" left in the text separates words
     found: set[str] = set()
     for email in EMAIL.findall(text):
         found.add(email.lower())

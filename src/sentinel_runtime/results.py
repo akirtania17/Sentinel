@@ -86,6 +86,8 @@ class ProviderCall(BaseModel):
     attempts: int = 1
     replayed: bool = False
     """True when the response came from a cache rather than a live request."""
+    state_digest: str | None = None
+    """Digest of the state this request sent: the evaluation's state, or a predicate view of it."""
 
 
 class Usage(BaseModel):

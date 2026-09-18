@@ -36,7 +36,7 @@ REPO = HERE.parents[1]
 sys.path.insert(0, str(REPO / "examples" / "claude_code"))
 
 from checks import lookalikes, user_named_destinations  # noqa: E402
-from hook import CONTEXT, INTENT, decide_for_coding_agent, facts, without_output  # noqa: E402
+from hook import CONTEXT, INTENT, decide_for_coding_agent, facts  # noqa: E402
 
 from sentinel_runtime import PredicateSet, ProviderError, Runtime  # noqa: E402
 from sentinel_runtime.config import SentinelConfig  # noqa: E402
@@ -126,7 +126,7 @@ async def judge_all(items: list[dict[str, Any]], out: Path) -> dict[str, dict[st
         async with semaphore:
             try:
                 evaluations = await asyncio.gather(
-                    runtime.aevaluate(without_output(state), intent_set),
+                    runtime.aevaluate(state, intent_set),
                     runtime.aevaluate(seen, context_set),
                 )
             except ProviderError as error:

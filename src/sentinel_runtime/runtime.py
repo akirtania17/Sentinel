@@ -5,6 +5,9 @@ the minimum number of provider requests (normally one), calls the provider, vali
 answers, emits one telemetry event, and returns an ``Evaluation``. The runtime never decides what the
 application does, and a provider failure is always a ``ProviderError``, never a result.
 
+Predicates that declare ``sees`` are evaluated on that view of the state (``sentinel_runtime.views``),
+in a request of their own; predicates sharing a view share a request.
+
 When a plan needs several requests and one fails, the error carries the successful results in
 ``ProviderError.partial``. Sync evaluation runs requests in order and stops at the first failure;
 async evaluation runs them concurrently and waits for all before raising.
@@ -33,6 +36,7 @@ from sentinel_runtime.providers.typesafe import TypeSafeProvider
 from sentinel_runtime.results import Evaluation, ProviderCall, Result, Usage
 from sentinel_runtime.state import Redactor, State, StateLike
 from sentinel_runtime.telemetry import EvaluationEvent, TelemetrySink
+from sentinel_runtime.views import project
 
 logger = logging.getLogger("sentinel_runtime")
 
@@ -50,6 +54,14 @@ class _Prepared:
     predicate_set: PredicateSet
     state: State
     model: str
+
+
+@dataclass(frozen=True)
+class _Work:
+    """One request to make: a chunk of predicates and the state (or view of it) they see."""
+
+    state: State
+    chunk: Chunk
 
 
 @dataclass(frozen=True)
@@ -159,8 +171,8 @@ class Runtime:
         outcomes: list[_Outcome] = []
         failure: ProviderError | None = None
         try:
-            for chunk in self._plan(prepared).chunks:
-                outcomes.extend(self._run_chunk(prepared, chunk, timeout))
+            for work in self._plan(prepared):
+                outcomes.extend(self._run_chunk(prepared, work, timeout))
         except ProviderError as error:
             failure = error
         return self._finish(prepared, outcomes, failure)
@@ -178,14 +190,14 @@ class Runtime:
         prepared = self._prepare(state, predicates, model, select)
         outcomes: list[_Outcome] = []
         failure: ProviderError | None = None
-        plan: Plan | None = None
+        plan: list[_Work] | None = None
         try:
             plan = self._plan(prepared)
         except ProviderError as error:
             failure = error
         if plan is not None:
             gathered = await asyncio.gather(
-                *(self._arun_chunk(prepared, chunk, timeout) for chunk in plan.chunks), return_exceptions=True
+                *(self._arun_chunk(prepared, work, timeout) for work in plan), return_exceptions=True
             )
             unexpected: BaseException | None = None
             for item in gathered:
@@ -259,19 +271,23 @@ class Runtime:
             model=self.model_for(model),
         )
 
-    def _plan(self, prepared: _Prepared) -> Plan:
-        return plan_requests(
-            prepared.state,
-            prepared.predicate_set.predicates,
-            self._provider.limits,
-            provider=self._provider.name,
-        )
+    def _plan(self, prepared: _Prepared) -> list[_Work]:
+        """The requests to make: predicates grouped by what they see, each group planned on its view."""
+        groups: dict[tuple[str, ...] | None, list[Predicate]] = {}
+        for predicate in prepared.predicate_set.predicates:
+            groups.setdefault(predicate.sees, []).append(predicate)
+        work: list[_Work] = []
+        for sees, predicates in groups.items():
+            state = prepared.state if sees is None else State.of(project(prepared.state.value, sees))
+            plan: Plan = plan_requests(state, predicates, self._provider.limits, provider=self._provider.name)
+            work += [_Work(state, chunk) for chunk in plan.chunks]
+        return work
 
-    def _request(self, prepared: _Prepared, chunk: Chunk, timeout: float | None) -> ProviderRequest:
+    def _request(self, state: State, chunk: Chunk, timeout: float | None, model: str) -> ProviderRequest:
         return ProviderRequest(
-            state=prepared.state,
+            state=state,
             predicates=chunk.predicates,
-            model=prepared.model,
+            model=model,
             timeout=timeout,
             estimated_input_tokens=chunk.estimated_input_tokens,
         )
@@ -291,19 +307,21 @@ class Runtime:
             predicate_ids=tuple(predicate.id for predicate in chunk.predicates),
             attempts=response.attempts + retries,
             replayed=response.replayed,
+            state_digest=request.state.digest,
         )
         return _Outcome(call=call, results=results)
 
-    def _split_or_raise(self, prepared: _Prepared, chunk: Chunk, error: ProviderError) -> tuple[Chunk, Chunk]:
+    def _split_or_raise(self, state: State, chunk: Chunk, error: ProviderError) -> tuple[Chunk, Chunk]:
         """Bisect a chunk the provider rejected as too large, or raise when it cannot be split."""
         if error.kind == "context_too_large" and len(chunk.predicates) > 1:
-            return bisect(chunk, prepared.state, self._provider.limits)
+            return bisect(chunk, state, self._provider.limits)
         if error.kind == "context_too_large" and error.estimated_tokens is None:
             raise error.replace(estimated_tokens=chunk.estimated_input_tokens)
         raise error
 
-    def _run_chunk(self, prepared: _Prepared, chunk: Chunk, timeout: float | None) -> list[_Outcome]:
-        request = self._request(prepared, chunk, timeout)
+    def _run_chunk(self, prepared: _Prepared, work: _Work, timeout: float | None) -> list[_Outcome]:
+        chunk = work.chunk
+        request = self._request(work.state, chunk, timeout, prepared.model)
         for retries in range(MALFORMED_RETRIES + 1):
             failure: ProviderError | None = None
             response: ProviderResponse | None = None
@@ -312,8 +330,10 @@ class Runtime:
             except ProviderError as error:
                 failure = error
             if failure is not None:
-                left, right = self._split_or_raise(prepared, chunk, failure)
-                return self._run_chunk(prepared, left, timeout) + self._run_chunk(prepared, right, timeout)
+                left, right = self._split_or_raise(work.state, chunk, failure)
+                return self._run_chunk(prepared, _Work(work.state, left), timeout) + self._run_chunk(
+                    prepared, _Work(work.state, right), timeout
+                )
             assert response is not None
             outcome = self._checked_outcome(chunk, request, response, retries)
             if outcome is not None:
@@ -332,8 +352,9 @@ class Runtime:
             logger.warning("provider returned malformed answers; retrying once (%s)", error.detail)
             return None
 
-    async def _arun_chunk(self, prepared: _Prepared, chunk: Chunk, timeout: float | None) -> list[_Outcome]:
-        request = self._request(prepared, chunk, timeout)
+    async def _arun_chunk(self, prepared: _Prepared, work: _Work, timeout: float | None) -> list[_Outcome]:
+        chunk = work.chunk
+        request = self._request(work.state, chunk, timeout, prepared.model)
         for retries in range(MALFORMED_RETRIES + 1):
             failure: ProviderError | None = None
             response: ProviderResponse | None = None
@@ -342,9 +363,10 @@ class Runtime:
             except ProviderError as error:
                 failure = error
             if failure is not None:
-                left, right = self._split_or_raise(prepared, chunk, failure)
+                left, right = self._split_or_raise(work.state, chunk, failure)
                 halves = await asyncio.gather(
-                    self._arun_chunk(prepared, left, timeout), self._arun_chunk(prepared, right, timeout)
+                    self._arun_chunk(prepared, _Work(work.state, left), timeout),
+                    self._arun_chunk(prepared, _Work(work.state, right), timeout),
                 )
                 return halves[0] + halves[1]
             assert response is not None

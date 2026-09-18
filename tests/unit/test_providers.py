@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from sentinel_runtime.providers import (
     CachingProvider,
     FakeProvider,
     ProviderRequest,
+    ProviderResponse,
     cache_key,
     choice_answer,
     noul_answer,
@@ -218,3 +220,47 @@ def test_record_mode_keeps_identical_entries(tmp_path: Path) -> None:
     assert again.recorded == 0
     again.close()
     assert path.read_text() == original
+
+
+class _Slow(FakeProvider):
+    """A provider whose answers differ call by call and take a moment, optionally failing first."""
+
+    def __init__(self, fail_first: bool = False) -> None:
+        super().__init__()
+        self.fail_first = fail_first
+
+    async def aevaluate(self, request: ProviderRequest) -> ProviderResponse:
+        await asyncio.sleep(0.01)
+        if self.fail_first and not self.requests:
+            self.requests.append(request)
+            raise ProviderError("server", "boom", retryable=True, provider="fake")
+        self.answers = {"a": noul_answer(0.1 * (len(self.requests) + 1))}
+        return await super().aevaluate(request)
+
+
+def test_identical_requests_in_flight_are_sent_once(tmp_path: Path) -> None:
+    inner = _Slow()
+    cache = CachingProvider(inner, tmp_path / "c.jsonl")
+
+    async def three() -> list[ProviderResponse]:
+        return list(await asyncio.gather(*(cache.aevaluate(_request()) for _ in range(3))))
+
+    responses = asyncio.run(three())
+    assert len(inner.requests) == 1
+    assert {r.answers["a"]["noul"] for r in responses} == {0.1}
+    assert asyncio.run(cache.aevaluate(_request())).replayed
+
+
+def test_when_the_shared_request_fails_the_others_try_on_their_own(tmp_path: Path) -> None:
+    inner = _Slow(fail_first=True)
+    cache = CachingProvider(inner, tmp_path / "c.jsonl")
+
+    async def two() -> list[ProviderResponse | BaseException]:
+        return list(
+            await asyncio.gather(*(cache.aevaluate(_request()) for _ in range(2)), return_exceptions=True)
+        )
+
+    first, second = asyncio.run(two())
+    assert isinstance(first, ProviderError)
+    assert not isinstance(second, BaseException)
+    assert len(inner.requests) == 2
