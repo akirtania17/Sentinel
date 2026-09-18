@@ -130,9 +130,11 @@ written and audited by independent authors:
 
 On Meta's independent LlamaFirewall benchmark it detects 90% of hijacked agent actions with 7% false
 alarms, level with Meta's checker on Llama 3.3 70B. Replaying GPT-4o's recorded AgentDojo runs, it cut
-successful prompt injections from 48% to 4%, but interrupted about a fifth of the clean tasks. An attacker who can run Sentinel locally and
-rewrite what the agent reads still got 4 of 12 harmful actions through (Sonnet: 2 of 12), so treat it
-as a fast first line alongside permissions, not as a security boundary. The
+successful prompt injections from 48% to 4%, but still stopped a fifth of the clean tasks the agent
+completed; for more than half of those it asks the user rather than denying. An attacker who can run Sentinel locally and rewrite what
+the agent reads got 2 of 12 harmful actions through (1 of 12 with uncertain calls escalated to
+Sonnet; Sonnet alone: 2 of 12), so treat it as a fast first line alongside permissions, not as a
+security boundary. The
 [field test](docs/field-test.md) covers 187 real Claude Code sessions.
 
 ## Reference predicate sets

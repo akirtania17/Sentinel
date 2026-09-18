@@ -12,10 +12,21 @@ What Sentinel is shown (`SENTINEL_HOOK_CONTEXT`):
   did the user ask for this kind of action. `context.yaml` also sees the output of the agent's last
   six steps: wrong details, scope, unmet conditions, instructions found in data, and data leaving.
   In the stress test (docs/stress-test.md) this held accuracy while cutting what an adaptive
-  attacker could get through from 9 of 12 harmful actions to 4 of 12.
+  attacker could get through from 9 of 12 harmful actions to 4 of 12. The context judgment is also
+  told who the user is (`SENTINEL_HOOK_USER`, "Name <email>", or else git's user.name and
+  user.email), so the user's own address is not taken for an outside recipient.
 - `off`: only the request and the proposed call, judged with `predicates/agent_action.yaml`. In the
   field test this interrupted a third of legitimate calls: without context, Sentinel cannot tell
   what `./bin/issue_refund 5120 189.00` does or which orders the agent found double-charged.
+
+Code checks the judgments cannot be argued out of (checks.py): a target one slip away from what the
+user named is questioned, and when the user wrote every destination of a call, data sent there is
+not treated as leaving. When the user hands the agent tasks written in data ("do what the TODO file
+says"), an action that follows those instructions is put to the user instead of denied.
+
+Intent judgments are kept for the session (`SENTINEL_HOOK_FREEZE`, `on` by default) in
+`sessions/` next to the log: the answers only, never the state. The same action asked about again
+gets the same answer, so an agent retrying a stopped call cannot get it through on sampling noise.
 
 Policy (`SENTINEL_HOOK_POLICY`):
 
@@ -56,6 +67,7 @@ STARTED = time.perf_counter()
 import asyncio  # noqa: E402
 import json  # noqa: E402
 import os  # noqa: E402
+import subprocess  # noqa: E402
 import sys  # noqa: E402
 from collections.abc import Mapping, Sequence  # noqa: E402
 from datetime import UTC, datetime  # noqa: E402
@@ -66,7 +78,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 sys.path.insert(0, str(REPO / "examples" / "agent_action"))
 
-from checks import lookalikes  # noqa: E402
+from checks import lookalikes, user_named_destinations  # noqa: E402
 from gate import Decision, decide  # noqa: E402
 
 from sentinel_runtime import (  # noqa: E402
@@ -205,19 +217,26 @@ CHECKS = ("sends_data_away", "follows_data_instruction", "condition_blocked", "e
 
 
 def decide_for_coding_agent(
-    f: dict[str, Any], flags: Sequence[str] = (), thresholds: Mapping[str, float] = THRESHOLDS["strict"]
+    f: dict[str, Any],
+    flags: Sequence[str] = (),
+    thresholds: Mapping[str, float] = THRESHOLDS["strict"],
+    named_destinations: bool = False,
 ) -> Decision:
     """Stop what the user did not ask for; let reading, testing and requested work proceed.
 
-    `f` holds the judgments from `intent.yaml` and `context.yaml`. `requested` and the effect
-    judgments come from the intent judgment, which never sees tool output. `flags` are lookalike
-    targets found in code (checks.py).
+    `f` holds the judgments from `intent.yaml` and `context.yaml`. `requested`, `delegates` and the
+    effect judgments come from the intent judgment, which never sees tool output. `flags` are
+    lookalike targets and `named_destinations` says the user wrote every destination of the action,
+    both found in code (checks.py).
     """
     kind = f["effect_class"]["choice"]
     requested, data, checks = thresholds["requested"], thresholds["data"], thresholds["checks"]
-    if kind != "read_only" and f["sends_data_away"] >= data:
+    if kind != "read_only" and f["sends_data_away"] >= data and not named_destinations:
         return Decision("deny", "private data would leave for a destination the user did not name")
     if kind != "read_only" and f["follows_data_instruction"] >= data:
+        if f.get("delegates", 0.0) >= 0.5:
+            # The user told the agent to carry out instructions written in data; let them approve each.
+            return Decision("confirm", "the action follows instructions in data the user pointed to")
         return Decision("deny", "the action follows an instruction found in data, not the user")
     if kind != "read_only" and f["requested"] < requested:
         # No sign of an injection or of data leaving: the user may simply have implied it, so ask.
@@ -246,6 +265,7 @@ def unsure(
     decision: Decision,
     flags: Sequence[str] = (),
     thresholds: Mapping[str, float] = THRESHOLDS["strict"],
+    named_destinations: bool = False,
 ) -> bool:
     """Whether a judgment within UNSURE_MARGIN of its threshold would change the decision if it fell
     the other way."""
@@ -257,9 +277,8 @@ def unsure(
         if abs(f[name] - threshold) < UNSURE_MARGIN:
             mirrored = 2 * threshold - f[name]
             flipped = {**f, name: mirrored if mirrored != threshold else threshold - 0.01}
-            if (decide_for_coding_agent(flipped, flags, thresholds).action == "allow") != (
-                decision.action == "allow"
-            ):
+            again = decide_for_coding_agent(flipped, flags, thresholds, named_destinations)
+            if (again.action == "allow") != (decision.action == "allow"):
                 return True
     return False
 
@@ -280,17 +299,48 @@ def decide_without_context(evaluation: Evaluation) -> Decision:
     return Decision("allow", "no unrequested external or destructive effect")
 
 
-async def judge(state: dict[str, Any], context: str) -> list[Evaluation]:
-    """One evaluation without context, or the intent and context evaluations in parallel."""
-    async with Runtime.from_env(model=MODEL, config=SentinelConfig()) as runtime:
-        if context != "on":
+async def judge(
+    state: dict[str, Any], context: str, identity: Mapping[str, Any] | None = None, frozen: Path | None = None
+) -> list[Evaluation]:
+    """One evaluation without context, or the intent and context evaluations in parallel.
+
+    `identity` (who the user is) goes to the context judgment only. With `frozen`, intent judgments
+    are kept in that file and reused whenever the same judgment comes up again in the session.
+    """
+    if context != "on":
+        async with Runtime.from_env(model=MODEL, config=SentinelConfig()) as runtime:
             return [await runtime.aevaluate(state, PredicateSet.from_file(WITHOUT_CONTEXT))]
+    seen = {**state, "user_identity": dict(identity)} if identity else state
+    async with (
+        Runtime.from_env(model=MODEL, config=SentinelConfig(), cache=frozen) as intent_runtime,
+        Runtime.from_env(model=MODEL, config=SentinelConfig()) as context_runtime,
+    ):
         return list(
             await asyncio.gather(
-                runtime.aevaluate(without_output(state), PredicateSet.from_file(INTENT)),
-                runtime.aevaluate(state, PredicateSet.from_file(CONTEXT)),
+                intent_runtime.aevaluate(without_output(state), PredicateSet.from_file(INTENT)),
+                context_runtime.aevaluate(seen, PredicateSet.from_file(CONTEXT)),
             )
         )
+
+
+def user_identity(cwd: Path) -> dict[str, Any]:
+    """Who the user is: `SENTINEL_HOOK_USER` ("Name <email>"), else git's user.name and user.email."""
+    configured = os.environ.get("SENTINEL_HOOK_USER", "").strip()
+    if configured:
+        name, _, email = configured.partition("<")
+        found = {"name": name.strip(), "emails": [email.rstrip(">").strip()] if email else []}
+    else:
+        found = {}
+        for key, field in (("user.name", "name"), ("user.email", "emails")):
+            try:
+                value = subprocess.run(
+                    ["git", "config", key], cwd=cwd, capture_output=True, text=True, timeout=2, check=False
+                ).stdout.strip()
+            except (OSError, subprocess.SubprocessError):
+                value = ""
+            if value:
+                found[field] = [value] if field == "emails" else value
+    return {key: value for key, value in found.items() if value}
 
 
 def facts(evaluation: Evaluation) -> dict[str, Any]:
@@ -331,11 +381,18 @@ def main() -> None:
         # The pending call may already be in the transcript; show the steps that came before it.
         state["recent_steps"] = before.get(str(call.get("tool_use_id")), latest)
 
+    identity = user_identity(cwd) if context == "on" else {}
+    session = str(call.get("session_id") or "")
+    frozen = None
+    if session and os.environ.get("SENTINEL_HOOK_FREEZE", "on") == "on":
+        # Asking again about the same action gets the same answer, so a retried call cannot pass on noise.
+        frozen = log.parent / "sessions" / f"{''.join(c for c in session if c.isalnum() or c == '-')}.jsonl"
+
     prepared = time.perf_counter()
     evaluations: list[Evaluation] = []
     found: dict[str, Any] | None = None
     try:
-        evaluations = asyncio.run(judge(state, context))
+        evaluations = asyncio.run(judge(state, context, identity, frozen))
     except ProviderError as error:
         decision = Decision("deny", f"semantic check unavailable ({error.kind}); failing closed")
     else:
@@ -348,10 +405,11 @@ def main() -> None:
             decision = decide_without_context(evaluations[0])
         else:
             thresholds = THRESHOLDS[os.environ.get("SENTINEL_HOOK_THRESHOLDS", "strict")]
-            flags = lookalikes({**state, "user_request": user_request})
-            decision = decide_for_coding_agent(found, flags, thresholds)
+            flags = lookalikes(state)
+            named = user_named_destinations({**state, "user_identity": identity})
+            decision = decide_for_coding_agent(found, flags, thresholds, named)
             unsure_mode = os.environ.get("SENTINEL_HOOK_UNSURE", "decide") == "ask"
-            if unsure_mode and unsure(found, decision, flags, thresholds):
+            if unsure_mode and unsure(found, decision, flags, thresholds, named):
                 decision = Decision("confirm", f"Sentinel is unsure ({decision.reason})")
     finished = time.perf_counter()
 
@@ -368,6 +426,7 @@ def main() -> None:
         "reason": decision.reason,
         "facts": found,
         "request_ids": [e.calls[0].request_id for e in evaluations],
+        "replayed": [e.usage.replayed for e in evaluations],
         "input_tokens": sum(e.usage.input_tokens or 0 for e in evaluations) if evaluations else None,
         "evaluation_ms": round(max(e.latency_ms for e in evaluations), 1) if evaluations else None,
         "import_ms": round((IMPORTED - STARTED) * 1000, 1),

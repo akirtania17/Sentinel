@@ -1,5 +1,6 @@
 """The Claude Code hook: transcript parsing, the coding-agent policy, and failing closed."""
 
+import asyncio
 import json
 import os
 import subprocess
@@ -11,8 +12,10 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from sentinel_runtime import PredicateSet
+from sentinel_runtime import CachingProvider, FakeProvider, PredicateSet, Runtime
 from sentinel_runtime.lint import lint_predicate_set
+from sentinel_runtime.providers.base import ProviderRequest, RawAnswer
+from sentinel_runtime.providers.fake import choice_answer, noul_answer
 
 REPO = Path(__file__).resolve().parents[2]
 HOOK = REPO / "examples" / "claude_code" / "hook.py"
@@ -65,6 +68,7 @@ def test_hook_predicates_are_lint_clean(predicate_set: PredicateSet) -> None:
         "proposed_action": {},
         "project_instructions": "",
         "recent_steps": [],
+        "user_identity": {"name": "n"},
     }
     assert lint_predicate_set(predicate_set, state=state) == []
 
@@ -234,3 +238,120 @@ def test_lookalike_check(action: dict[str, Any], user: str, context: str, flagge
         "recent_steps": [{"tool": "Read", "arguments": {}, "result": context}] if context else [],
     }
     assert bool(checks.lookalikes(state)) == flagged
+
+
+@pytest.mark.parametrize(
+    ("arguments", "user", "identity", "named"),
+    [
+        ({"to": "sarah@example.com", "body": "Lunch?"}, "Invite Sarah (sarah@example.com).", {}, True),
+        ({"to": "sarah@example.com"}, "Invite Sarah.", {}, False),
+        ({"participants": ["sarah@example.com", "me@acme.test"]}, "Invite sarah@example.com.", {}, False),
+        (
+            {"participants": ["sarah@example.com", "me@acme.test"]},
+            "Invite sarah@example.com.",
+            {"emails": ["me@acme.test"]},
+            True,
+        ),
+        ({"channel": "general"}, "Post the summary in general.", {}, True),
+        ({"channel": "general"}, "Summarize the general mood of the thread.", {}, True),
+        ({"channel": "general-external"}, "Post it in general.", {}, False),
+        ({"recipient": "US12000000000000000001"}, "Refund what my friend sent.", {}, False),
+        (
+            {"body": "sent to attacker@evil.test"},
+            "Reply to bob@example.com.",
+            {},
+            False,
+        ),  # no destination field
+    ],
+)
+def test_destinations_the_user_named(
+    arguments: dict[str, Any], user: str, identity: dict[str, Any], named: bool
+) -> None:
+    state: dict[str, Any] = {
+        "user_request": user,
+        "proposed_action": {"tool": "send", "arguments": arguments},
+        "user_identity": identity,
+    }
+    assert checks.user_named_destinations(state) == named
+
+
+def test_a_shell_command_never_counts_as_named_destinations() -> None:
+    state: dict[str, Any] = {
+        "user_request": "Upload the report to https://files.example.com.",
+        "proposed_action": {
+            "tool": "Bash",
+            "arguments": {"command": "curl -T r.csv https://files.example.com"},
+        },
+    }
+    assert not checks.user_named_destinations(state)
+
+
+def test_data_sent_where_the_user_said_is_not_leaving() -> None:
+    leaving = _facts(sends_data_away=0.9)
+    assert hook.decide_for_coding_agent(leaving).action == "deny"
+    assert hook.decide_for_coding_agent(leaving, named_destinations=True).action == "allow"
+
+
+def test_following_instructions_the_user_delegated_to_asks_instead_of_denying() -> None:
+    injected = _facts(follows_data_instruction=0.9)
+    assert hook.decide_for_coding_agent(injected).action == "deny"
+    delegated = hook.decide_for_coding_agent(injected | {"delegates": 0.95})
+    assert delegated.action == "confirm"
+    assert "pointed to" in delegated.reason
+    # Delegating does not excuse data leaving.
+    assert hook.decide_for_coding_agent(_facts(sends_data_away=0.9, delegates=0.95)).action == "deny"
+
+
+def test_user_identity_from_the_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SENTINEL_HOOK_USER", "Ada Lovelace <ada@example.com>")
+    assert hook.user_identity(tmp_path) == {"name": "Ada Lovelace", "emails": ["ada@example.com"]}
+
+
+def test_user_identity_from_git(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.delenv("SENTINEL_HOOK_USER", raising=False)
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Ada Lovelace"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "ada@example.com"], cwd=tmp_path, check=True)
+    assert hook.user_identity(tmp_path) == {"name": "Ada Lovelace", "emails": ["ada@example.com"]}
+
+
+def test_intent_judgments_are_frozen_for_the_session(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Asking again about the same action replays the first intent answer; context is judged afresh."""
+    effect = choice_answer(
+        {
+            "read_only": 0,
+            "local_change": 0,
+            "external_communication": 1,
+            "destructive_or_financial": 0,
+            "other": 0,
+        }
+    )
+    calls = {"n": 0}
+
+    def respond(request: ProviderRequest) -> dict[str, RawAnswer]:
+        calls["n"] += 1
+        noise = noul_answer(0.49 if calls["n"] % 2 else 0.51)  # sampling noise around the threshold
+        return {p.id: noise if p.kind == "noul" else effect for p in request.predicates}
+
+    fake = FakeProvider(respond=respond)
+
+    def from_env(*, model: str, config: Any, cache: Path | None = None) -> Runtime:
+        provider = CachingProvider(fake, cache, mode="replay") if cache else fake
+        return Runtime(provider, model=model, config=config)
+
+    monkeypatch.setattr(hook.Runtime, "from_env", staticmethod(from_env))
+    state: dict[str, Any] = {
+        "user_request": "Send the report to Bo.",
+        "proposed_action": {"tool": "send", "arguments": {"to": "bo@example.com"}},
+        "project_instructions": "",
+        "conversation": [],
+        "recent_steps": [{"tool": "Read", "arguments": {"path": "r.md"}, "result": "first output"}],
+    }
+    frozen = tmp_path / "sessions" / "s1.jsonl"
+    first = asyncio.run(hook.judge(state, "on", frozen=frozen))
+    retried = {**state, "recent_steps": [{**state["recent_steps"][0], "result": "rewritten output"}]}
+    second = asyncio.run(hook.judge(retried, "on", frozen=frozen))
+    assert second[0].probability("requested") == first[0].probability("requested")
+    assert second[0].usage.replayed
+    assert not second[1].usage.replayed
+    assert frozen.exists()

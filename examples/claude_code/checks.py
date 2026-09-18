@@ -11,6 +11,12 @@ EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 DOMAIN = re.compile(r"\b(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\b")
 NUMBER = re.compile(r"\b\d{4,}\b")
 PREFIXED_ID = re.compile(r"\b[A-Za-z]{2,8}_[A-Za-z0-9]{2,}\b")
+IBAN = re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b")
+DESTINATION_KEYS = re.compile(
+    r"(to|cc|bcc|recipients?|emails?|user_email|participants|attendees|invitees?|share_with|url|urls|host|"
+    r"endpoint|webhook|address|iban|account|channel|phone)",
+    re.IGNORECASE,
+)
 FILE_EXTENSIONS = {
     "csv", "json", "yaml", "yml", "py", "md", "txt", "sh", "log", "zip", "pdf", "png", "js", "ts", "html",
     "sql", "gz", "tar", "rb", "toml", "lock", "conf", "env", "xml", "jpg", "xlsx", "docx", "tgz", "whl",
@@ -37,6 +43,7 @@ def values(text: str) -> set[str]:
             found.add(domain.lower())
     found.update(NUMBER.findall(text))
     found.update(v.lower() for v in PREFIXED_ID.findall(text))
+    found.update(v.lower() for v in IBAN.findall(text))
     return found
 
 
@@ -74,13 +81,47 @@ def near(v: str, w: str) -> bool:
     return len(min(v, w, key=len)) >= 5 and distance(v, w) <= (1 if len(w) < 8 else 2)
 
 
+def user_text(state: dict[str, Any]) -> str:
+    """Everything the user wrote: the request and their earlier turns."""
+    return " ".join(
+        [state["user_request"], *(t["text"] for t in state.get("conversation", []) if t["role"] == "user")]
+    )
+
+
+def destinations(action: dict[str, Any]) -> list[str]:
+    """The values of a tool call's arguments that say where something goes: recipients, addresses,
+    links, accounts, channels. Empty for a shell command, whose destinations code cannot pick out."""
+    arguments = action.get("arguments")
+    if not isinstance(arguments, dict):
+        return []
+    return [
+        s
+        for key, value in arguments.items()  # pyright: ignore[reportUnknownVariableType]
+        if DESTINATION_KEYS.fullmatch(str(key))  # pyright: ignore[reportUnknownArgumentType]
+        for s in strings(value)
+    ]
+
+
+def user_named_destinations(state: dict[str, Any]) -> bool:
+    """Whether the action has destinations and each is one the user wrote or the user's own
+    (`user_identity`). Then whatever it sends goes where the user said, and nothing planted in data
+    chose where."""
+    found = [d.strip() for d in destinations(state["proposed_action"]) if d.strip()]
+    text = " ".join([user_text(state), *strings(state.get("user_identity", {}))])
+    named = values(text)
+
+    def written(d: str) -> bool:
+        if re.search(rf"(?<!\w){re.escape(d)}(?!\w)", text, re.IGNORECASE):
+            return True
+        return bool(values(d)) and values(d) <= named
+
+    return bool(found) and all(written(d) for d in found)
+
+
 def lookalikes(state: dict[str, Any]) -> list[str]:
     """Values in the action that sit one slip away from what the user or the records name."""
     action = values(" ".join(strings(state["proposed_action"])))
-    user_text = " ".join(
-        [state["user_request"], *(t["text"] for t in state.get("conversation", []) if t["role"] == "user")]
-    )
-    user = values(user_text)
+    user = values(user_text(state))
     context = values(
         " ".join(strings([state.get("project_instructions", ""), state.get("recent_steps", [])]))
     )

@@ -42,7 +42,7 @@ sys.path.insert(0, str(REPO / "examples" / "agent_action"))
 sys.path.insert(0, str(REPO / "examples" / "claude_code"))
 
 import hook  # noqa: E402
-from checks import lookalikes  # noqa: E402
+from checks import lookalikes, user_named_destinations  # noqa: E402
 from hook import facts, without_output  # noqa: E402
 from scenarios import ALLOW, STOP, Case, load  # noqa: E402
 
@@ -282,7 +282,8 @@ def sentinel_decision(policy_name: str, f: dict[str, Any], case: Case) -> str:
     including its lookalike check in code."""
     if policy_name.startswith("hook-"):
         thresholds = hook.THRESHOLDS[policy_name.removeprefix("hook-")]
-        decision = hook.decide_for_coding_agent(f, lookalikes(case.state), thresholds)
+        named = user_named_destinations(case.state)
+        decision = hook.decide_for_coding_agent(f, lookalikes(case.state), thresholds, named)
         return "allow" if decision.action == "allow" else "stop"
     return POLICIES[policy_name](f)
 

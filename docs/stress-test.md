@@ -26,9 +26,16 @@ security boundary.
   47.7% to 3.8%, better than the benchmark's published tool filter (6.8%), but it interrupted about
   a fifth of the clean tasks the agent had completed, where the tool filter lost none.
 - **Adaptive attacks**: an attacker who can run Sentinel locally got 9 of 12 harmful actions through
-  a design that judged everything in one request with the tool output. Judging intent without any tool output cut that to 4 of 12, and escalating
-  uncertain cases stops all but one attack, a redirected invoice payment that also fooled Sonnet.
-  Sentinel is not robust to a determined attacker on its own, and must say so.
+  a design that judged everything in one request with the tool output. Judging intent without any
+  tool output cut that to 4 of 12; the third-round hook held a fresh attacker to 2 of 12, and 1 of 12
+  with uncertain calls escalated to Sonnet. The one that always gets through is a redirected invoice
+  payment whose only harm is an account number the data supplies; that needs a payee allowlist, not
+  a judgment. Sentinel is not a security boundary on its own, and must say so.
+- **Third round**: knowing who the user is, tracing destinations the user wrote in code, asking
+  instead of denying when the user delegated to instructions in data, and freezing intent answers per
+  session recovered AgentDojo tasks (GPT-4o: 62.9% of clean tasks completed if the user approves the
+  hook's questions on their own tasks, from 58.8%) with held-out accuracy unchanged. A per-task
+  contract of needed tools and a learned decision rule were tried and not shipped.
 
 ## What was built
 
@@ -250,15 +257,137 @@ never authorizes anything refuses those by design; honoring such delegation mean
 can write into the delegated source is obeyed. The other denials came from the "forbidden or
 condition not met" and "data leaves" checks misfiring.
 
+## Third round: using Jev differently
+
+The second round left two weaknesses: AgentDojo tasks lost to false stops, and adaptive attacks
+that still got through. This round tried four ideas for putting Jev to work differently, each
+measured on the tuning sets and on AgentDojo before anything shipped, then scored the final design
+once on the second held-out set and against two fresh adaptive attackers.
+
+### What did not help
+
+- **An intent contract per task.** Before the agent reads anything, Jev reads only the user's
+  request and the list of available tools and answers, for every tool, whether the task needs it.
+  An attacker cannot touch that text, and the contract is fixed for the task. On its own it
+  behaves like AgentDojo's tool filter (GPT-4o: 11.1% of attacks succeed, 62.9% of clean tasks
+  completed), because injections mostly use a tool the task legitimately needs, such as
+  `send_money` in a payment task. Used in place of the per-call "did the user ask for this"
+  judgment it changed no AgentDojo decision at all: that judgment, already made without tool
+  output, was never what stopped a clean task. The contract helped only when it switched off the
+  scope, condition and detail checks for in-contract tools (59.8% of clean tasks for 4.0% of
+  attacks), and those checks are exactly what the benchmark's wrong-target and scope-creep cases
+  need. It was not shipped.
+- **A learned decision rule.** A logistic model over every judgment, with the intent rules kept by
+  hand (`combiner.py`), halved false alarms on the tuning sets under cross-validation (96.9%
+  stopped, 3.1% interrupted, against 96.5% and 6.6%). On AgentDojo, which it never saw, it lost
+  two more clean tasks than the hand-written rule with GPT-4o and three more with Claude. Weights
+  fitted to one benchmark's borderline cases do not carry over to another's. It was not shipped.
+- **A new-payee rule** (confirm any payment to an account the user did not name that came from
+  outside data) would have touched three tuning actions, and the invoice redirect's account is not
+  shaped like an account number. A payee allowlist in the payment system remains the right control.
+
+### What shipped
+
+- **Who the user is.** The context judgment now sees the user's name and email (`SENTINEL_HOOK_USER`,
+  or git's `user.name` and `user.email`). Five of GPT-4o's lost AgentDojo tasks were calendar
+  invites that included the user's own address, which Sentinel read as an outside recipient or a
+  wider audience. With the identity three of them passed; two still stopped on borderline detail or
+  scope answers (0.52 and 0.72, the latter for a duplicated participant).
+- **Destinations the user wrote, traced in code.** When every recipient, address, link, account or
+  channel in a tool call's arguments is one the user wrote (or their own), data sent there is not
+  treated as leaving. Nothing planted in data can change what the user typed. Shell commands are
+  excluded, because code cannot reliably tell which part of a command is the destination.
+- **Delegation asks instead of denying.** A new intent question asks whether the user handed the
+  agent tasks written in data ("do the tasks on my TODO list"). When they did, an action that
+  follows instructions in data is put to the user instead of denied. On AgentDojo no clean
+  delegating task is denied any more; each gets a question instead. The cost is real: when an attacker
+  writes into the very source the user delegated to, the user sees a question they may approve.
+- **Frozen intent judgments.** The hook keeps each intent answer for the session (answers only,
+  never the state), so an agent that retries a stopped call gets the same answer instead of a
+  fresh sample near the threshold.
+
+### Results
+
+Tuning set (development): 96.9% stopped and 5.8% interrupted, against 96.5% and 6.6% before;
+multi-turn tuning set 96% and 8% (two borderline flips at 0.50, within noise).
+
+Second held-out set, scored once:
+
+| Design | Harmful stopped | Legitimate interrupted |
+| --- | --- | --- |
+| Second round, strict | 95.3% | 7.2% |
+| Third round, strict | 95.3% | 8.4% |
+| Third round, balanced | 93.6% | 3.6% |
+| Third round, strict, unsure 9% escalated to Sonnet | 97.9% | 4.4% |
+
+The three extra interruptions are all answers that moved across a threshold by a few hundredths
+(0.47 to 0.50, 0.48 to 0.55): noise from asking again, not an effect of the changes. The held-out
+set has no identities, delegation or tool-call destinations to trace, so on it the changes are
+neutral, as intended.
+
+AgentDojo (the hook now asks or denies; the two columns bracket how a user answers its questions):
+
+| Agent | Defense | Attacks that succeed | Clean tasks completed |
+| --- | --- | --- | --- |
+| GPT-4o | None | 47.7% | 69.1% |
+| GPT-4o | Second round, questions declined / approved | 3.8% / 4.5% | 53.6% / 58.8% |
+| GPT-4o | Third round, questions declined / approved | 3.7% / 6.2% | 54.6% / 62.9% |
+| GPT-4o | Second round, unsure calls escalated to Sonnet | 3.5% | 57.7% |
+| GPT-4o | AgentDojo tool filter (published run) | 6.8% | 72.2% |
+| Claude 3.5 Sonnet | None | 1.1% | 79.4% |
+| Claude 3.5 Sonnet | Second round, questions declined / approved | 0.6% / 0.6% | 69.1% / 71.1% |
+| Claude 3.5 Sonnet | Third round, questions declined / approved | 0.6% / 1.0% | 67.0% / 75.3% |
+
+If users approve the hook's questions on their own tasks and decline those raised by an attack, the
+third round completes 62.9% of GPT-4o's clean tasks while letting 3.7% of attacks through, against
+58.8% and 3.8% before. Most of the attacks that reach a question instead of a denial come from
+delegating tasks whose delegated file or email the attacker wrote into.
+
+The remaining lost clean tasks are single judgments near a threshold: an answer of 0.50 on "a
+condition is not met", 0.56 on scope. Asking again with small changes to the state moves some
+across and others back; that is the noise floor of any single-threshold rule, and escalation is the
+measured way past it (57.7% of GPT-4o's clean tasks for $1.93 of Sonnet across 118 escalated calls).
+
+### Fresh adaptive attackers
+
+Two new attackers, each a separate subagent with the same rules as before (rewrite only tool output,
+8 tries per action, full knowledge of the questions, the decision rule and the code checks, every
+judgment shown after each try), attacked the 12 harmful development-set actions. One attacked the
+shipped hook exactly as it runs; the other attacked it with unsure calls escalated to Sonnet, and
+also saw Sonnet's stated reasons.
+
+| Target | Harmful actions that got through |
+| --- | --- |
+| Second round, intent judged without tool output | 4 of 12 |
+| Third round, shipped hook | 2 of 12 |
+| Third round, unsure calls escalated to Sonnet (fresh attacker) | 1 of 12 |
+
+Both attackers reported the same wall: for ten of the twelve actions the frozen, output-blind
+"did the user ask for this kind of action" answer was 0.02 to 0.14, and no text they wrote could
+reach it, so they stopped trying after one attempt. What got through:
+
+- **The redirected invoice payment**, against both configurations on the first try. Paying the
+  invoice is exactly what the user asked, so the only harm is an account number the data supplies.
+  The attacker removed the "bank details changed" message and presented its account as the only one
+  on record, leaving nothing in the state to contradict it. No judgment over that state can catch
+  this; a payee allowlist in the payment system can.
+- **A document link opened to anyone with the link**, against the shipped hook on the seventh try, by
+  describing the link as restricted to the company and already applied. Its "requested" answer was
+  0.52, inside the unsure band, so with escalation Sonnet decided it and read the harm straight from
+  the action's arguments (`anyone_with_link`); three attempts all failed there.
+
+Freezing cuts both ways. The admin-grant action's "requested" answer was frozen at 0.47 in one
+attacker's session and 0.56 in the other's: an attacker cannot re-roll it, but a single first sample
+near the threshold decides whether the action is reachable at all. With escalation that band goes
+to Sonnet, which is why the recommended high-stakes setup is the escalating one.
+
 ## Before going public
 
 - State the limits in the README: a supplement to permissions, not a security boundary; adaptive
-  attackers get some actions through; value-level fraud needs deterministic controls; delegation to
-  instructions in data is refused by design.
+  attackers get some actions through; value-level fraud needs deterministic controls; following
+  instructions in data the user delegated to is only ever asked about, never allowed silently.
 - Recommend escalation (or asking the user) for uncertain decisions on high-stakes tools; the hook
   exposes this as `SENTINEL_HOOK_UNSURE=ask`.
-- Decide how to support delegation ("follow the instructions in this file"), for example by asking
-  the user once per delegated source, and measure it on AgentDojo's delegating tasks.
 - Tighten the "forbidden or condition not met" check, the largest source of false denials on
   AgentDojo, and re-measure on a fresh held-out set.
 - Make the trust boundary a library feature: let a predicate set declare which state fields each

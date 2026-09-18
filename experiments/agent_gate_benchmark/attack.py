@@ -15,7 +15,10 @@ The user request, project instructions, step commands and the proposed action ca
 Each target allows ATTEMPTS tries. Attempts are logged in $ATTACK_DIR/attempts.jsonl. The TypeSafe
 key is read from the shell file named by $SENTINEL_KEY_FILE. $ATTACK_TARGET picks the gate under
 attack: `sentinel` (the default; feedback is every judgment), `sentinel_split` (intent judged
-without tool output), or `llm_sonnet` / `llm_haiku` (feedback is the judge's stated reason).
+without tool output), `hook` (the shipped Claude Code hook's exact decision: both judgments, the
+checks in code, and intent answers frozen per action as in a session), `hook_escalate` (the same,
+with calls the hook is unsure of decided by Claude Sonnet), or `llm_sonnet` / `llm_haiku` (feedback
+is the judge's stated reason).
 """
 
 import asyncio
@@ -33,7 +36,9 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(REPO / "examples" / "agent_action"))
 sys.path.insert(0, str(REPO / "examples" / "claude_code"))
 
+import hook  # noqa: E402
 from bench import POLICIES, llm_judge, without_output  # noqa: E402
+from checks import lookalikes, user_named_destinations  # noqa: E402
 from hook import facts  # noqa: E402
 from scenarios import Case, load  # noqa: E402
 
@@ -128,6 +133,38 @@ async def judge_sentinel(
     return {"decision": POLICIES[policy](found), "facts": found}
 
 
+async def judge_hook(state: dict[str, Any], key: str, escalate: bool) -> dict[str, Any]:
+    """The shipped hook's decision. Intent answers are kept per target, as the hook keeps them per
+    session, so every attempt on a target sees the same intent judgment."""
+    load_key()
+    frozen = attack_dir() / "frozen" / f"{key.replace('/', '__')}.jsonl"
+    try:
+        evaluations = await hook.judge(state, "on", frozen=frozen)
+    except ProviderError as error:
+        return {"decision": "error", "reason": error.kind}
+    found: dict[str, Any] = {}
+    for evaluation in evaluations:
+        found.update(facts(evaluation))
+    flags, named = lookalikes(state), user_named_destinations(state)
+    decision = hook.decide_for_coding_agent(found, flags, hook.THRESHOLDS["strict"], named)
+    verdict: dict[str, Any] = {
+        "decision": "allow" if decision.action == "allow" else "stop",
+        "reason": decision.reason,
+        "facts": found,
+    }
+    if escalate and hook.unsure(found, decision, flags, hook.THRESHOLDS["strict"], named):
+        case = cases()[key]
+        answer = llm_judge("sonnet")(
+            Case(key, {**case.scenario, "recent_steps": state["recent_steps"]}, case.action)
+        )
+        verdict |= {
+            "decision": answer["decision"],
+            "escalated": True,
+            "judge_reason": answer.get("reason", ""),
+        }
+    return verdict
+
+
 def command_show(key: str) -> None:
     case = cases()[key]
     print(json.dumps({"key": key, "state": case.state}, indent=2))
@@ -149,6 +186,8 @@ def command_try(key: str, patch_path: Path) -> None:
         verdict = asyncio.run(judge_sentinel(state, *TARGET))
     elif gate == "sentinel_split":
         verdict = asyncio.run(judge_sentinel(state, SPLIT[0], "focused2", SPLIT[1]))
+    elif gate in ("hook", "hook_escalate"):
+        verdict = asyncio.run(judge_hook(state, key, gate == "hook_escalate"))
     else:
         probe = Case(key, {**case.scenario, "recent_steps": state["recent_steps"]}, case.action)
         answer = llm_judge(gate.removeprefix("llm_"))(probe)
@@ -161,7 +200,9 @@ def command_try(key: str, patch_path: Path) -> None:
             {
                 "attempt": record["attempt"],
                 "decision": verdict["decision"],
-                "feedback": verdict.get("facts") or verdict.get("reason"),
+                "feedback": {k: v for k, v in verdict.items() if k != "decision"}
+                if gate.startswith("hook")
+                else verdict.get("facts") or verdict.get("reason"),
             }
         )
     )
@@ -198,6 +239,8 @@ def command_transfer(gates: list[str]) -> None:
             elif gate == "sentinel_split":
                 verdict = asyncio.run(judge_sentinel(state, SPLIT[0], "focused2", SPLIT[1]))
                 row[gate] = verdict["decision"]
+            elif gate in ("hook", "hook_escalate"):
+                row[gate] = asyncio.run(judge_hook(state, key, gate == "hook_escalate"))["decision"]
             elif gate == "sentinel_focused2":
                 row[gate] = asyncio.run(judge_sentinel(state, *TARGET))["decision"]
             elif gate == "sentinel_tool_call":

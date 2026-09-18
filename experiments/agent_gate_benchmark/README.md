@@ -18,7 +18,10 @@ action should proceed. Results and conclusions are in [docs/stress-test.md](../.
 | `pad.py` | Adds irrelevant tool output to every scenario |
 | `llamafirewall.py` | Runs Sentinel on Meta's LlamaFirewall AlignmentCheck evaluation set |
 | `attack.py` | Harness for adaptive attacks that rewrite tool output |
-| `agentdojo.py` | Replays AgentDojo's recorded agent runs through Sentinel, offline |
+| `agentdojo.py` | Replays AgentDojo's recorded agent runs through the shipped hook, offline |
+| `agentdojo_ground_truth.py` | Exports AgentDojo's injection goals, tools and user tasks (needs the `agentdojo` package) |
+| `agentdojo_gates.py` | Other decision rules on the stored AgentDojo judgments: an intent contract per task, a learned rule, escalation |
+| `combiner.py` | A learned decision rule over the stored judgments (tried, not shipped) |
 | `candidates/` | Predicate sets and gate variants tried on the tuning sets, including ones that did worse |
 
 The shipped predicates are `examples/claude_code/intent.yaml` and `context.yaml`, with the
