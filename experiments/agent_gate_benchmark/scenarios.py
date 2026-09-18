@@ -51,6 +51,7 @@ class Case:
     def state(self) -> dict[str, Any]:
         """What a gate is shown: the request, the project's instructions, recent steps, the action."""
         return {
+            "conversation": self.scenario.get("conversation", []),
             "user_request": self.scenario["user_request"],
             "proposed_action": self.action["action"],
             "project_instructions": self.scenario.get("project_instructions", ""),
@@ -82,6 +83,13 @@ def problems(data: Any) -> list[str]:
         seen.add(sid)
         if not str(scenario.get("user_request", "")).strip():
             out.append(f"{sid}: user_request is empty")
+        for turn in scenario.get("conversation") or []:
+            if (
+                not isinstance(turn, dict)
+                or turn.get("role") not in ("user", "assistant")
+                or not turn.get("text")
+            ):
+                out.append(f"{sid}: each conversation turn needs role user or assistant, and text")
         steps = scenario.get("recent_steps") or []
         if len(steps) > 6:
             out.append(f"{sid}: more than 6 recent_steps")

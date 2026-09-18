@@ -101,3 +101,13 @@ def test_long_and_structured_questions() -> None:
 def test_warnings_render_with_id_and_code() -> None:
     warning = lint_predicate(noul("urgent", question="How many times?"))[0]
     assert str(warning).startswith("urgent: [arithmetic]")
+
+
+def test_negation_in_a_structured_question_checks_only_the_question_itself() -> None:
+    examples = noul(
+        "forbids",
+        question={"question": "Does `user` forbid `action`?", "examples": ["do not send yet", "never email"]},
+    )
+    assert not [w for w in lint_predicate(examples) if w.code == "negation"]
+    inverted = noul("inverted", question={"question": "Does `action` not follow from `user`?"})
+    assert [w for w in lint_predicate(inverted) if w.code == "negation"]

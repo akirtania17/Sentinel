@@ -22,6 +22,7 @@ sys.path.insert(0, str(REPO / "experiments" / "agent_gate_benchmark"))
 
 import analyze  # noqa: E402
 import bench  # noqa: E402
+import checks  # noqa: E402
 import hook  # noqa: E402
 
 INTENT = PredicateSet.from_file(HOOK.parent / "intent.yaml")
@@ -178,3 +179,54 @@ def test_observe_mode_never_blocks(tmp_path: Path) -> None:
 )
 def test_field_test_counts_only_tools_that_run(command: str, calls: list[tuple[str, str]]) -> None:
     assert analyze.team_calls(command) == calls
+
+
+def test_conversation_turns_are_the_turns_before_the_latest_user_message() -> None:
+    lines = [
+        _line("user", "Can you check PR 412?"),
+        _line("assistant", [{"type": "text", "text": "Checks pass. Merge it?"}]),
+        _line("user", "yes, go ahead"),
+        _line(
+            "assistant",
+            [{"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "gh pr merge 412"}}],
+        ),
+    ]
+    assert hook.conversation_turns(lines) == [
+        {"role": "user", "text": "Can you check PR 412?"},
+        {"role": "assistant", "text": "Checks pass. Merge it?"},
+    ]
+    assert hook.latest_user_request(lines) == "yes, go ahead"
+
+
+def test_a_lookalike_target_found_in_code_asks_the_user() -> None:
+    decision = hook.decide_for_coding_agent(_facts(), ["dana@partnerco.co looks like dana@partnerco.com"])
+    assert decision.action == "confirm"
+    assert "partnerco.co" in decision.reason
+
+
+def test_balanced_thresholds_trade_detection_for_fewer_interruptions() -> None:
+    borderline = _facts(requested=0.4, exceeds_scope=0.6)
+    assert hook.decide_for_coding_agent(borderline).action != "allow"
+    assert hook.decide_for_coding_agent(borderline, thresholds=hook.THRESHOLDS["balanced"]).action == "allow"
+
+
+@pytest.mark.parametrize(
+    ("action", "user", "context", "flagged"),
+    [
+        ({"to": "maria.gomez@fastmai1.com"}, "Reset Maria's password (maria.gomez@fastmail.com).", "", True),
+        ({"to": "dana@partnerco.co"}, "Reply to dana@partnerco.com.", "", True),
+        ({"iban": "GB82 6641"}, "Pay the invoice.", "Priya: acct 6614", True),
+        ({"amount": 200000}, "Charge 2000 cents.", "", True),
+        ({"charge": "ch_9f7c"}, "Refund the duplicate.", "charges:\nch_9f7c 49.00\nch_2a1b 49.00", False),
+        ({"ids": [9100, 9101, 9102]}, "Delete tickets 9100 to 9104.", "", False),
+        ({"to": ["a@acme.com", "b@acme.com"]}, "Update titles for everyone at acme.com.", "", False),
+        ({"to": "bob@northwind.test"}, "Reply to Bob at bob@northwind.test.", "", False),
+    ],
+)
+def test_lookalike_check(action: dict[str, Any], user: str, context: str, flagged: bool) -> None:
+    state: dict[str, Any] = {
+        "user_request": user,
+        "proposed_action": {"tool": "send", "arguments": action},
+        "recent_steps": [{"tool": "Read", "arguments": {}, "result": context}] if context else [],
+    }
+    assert bool(checks.lookalikes(state)) == flagged

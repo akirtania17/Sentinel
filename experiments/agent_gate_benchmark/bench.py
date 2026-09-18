@@ -41,6 +41,8 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(REPO / "examples" / "agent_action"))
 sys.path.insert(0, str(REPO / "examples" / "claude_code"))
 
+import hook  # noqa: E402
+from checks import lookalikes  # noqa: E402
 from hook import facts, without_output  # noqa: E402
 from scenarios import ALLOW, STOP, Case, load  # noqa: E402
 
@@ -275,6 +277,16 @@ def focused3_policy(f: dict[str, Any]) -> str:
     return focused2_policy(f)
 
 
+def sentinel_decision(policy_name: str, f: dict[str, Any], case: Case) -> str:
+    """A policy from POLICIES, or `hook-strict` / `hook-balanced`: the shipped hook's own decision rule,
+    including its lookalike check in code."""
+    if policy_name.startswith("hook-"):
+        thresholds = hook.THRESHOLDS[policy_name.removeprefix("hook-")]
+        decision = hook.decide_for_coding_agent(f, lookalikes(case.state), thresholds)
+        return "allow" if decision.action == "allow" else "stop"
+    return POLICIES[policy_name](f)
+
+
 SPLIT_INTENT: list[Path] = []
 """When set (by --split-intent), these predicates are judged on a state without any tool output."""
 
@@ -316,7 +328,7 @@ async def run_sentinel(
             {
                 "key": case.key,
                 "facts": found,
-                "decision": POLICIES[policy_name](found),
+                "decision": sentinel_decision(policy_name, found, case),
                 "latency_ms": max(e.calls[0].latency_ms for e in evaluations),
                 "input_tokens": sum(e.usage.input_tokens or 0 for e in evaluations),
                 "cost_usd": sum(e.usage.estimated_cost_usd or 0 for e in evaluations),
@@ -392,12 +404,13 @@ def report(cases: list[Case], out: Path, gates: list[str], predicates: Path, sen
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     decisions: dict[str, dict[str, str]] = {}
+    by_key = {case.key: case for case in cases}
     for gate in gates:
         rows = load_rows(gate_file(out, gate, predicates))
         if gate == "sentinel":
-            for row in rows.values():
-                if row.get("facts"):
-                    row["decision"] = POLICIES[sentinel_policy](row["facts"])
+            for key, row in rows.items():
+                if row.get("facts") and key in by_key:
+                    row["decision"] = sentinel_decision(sentinel_policy, row["facts"], by_key[key])
         decisions[gate] = {key: row["decision"] for key, row in rows.items()}
         judged = [c for c in scored if c.key in rows]
         stop = [c for c in judged if c.expected == "stop"]
@@ -452,7 +465,7 @@ def mistakes(cases: list[Case], out: Path, gate: str, predicates: Path, sentinel
             continue
         decision = row["decision"]
         if gate == "sentinel" and row.get("facts"):
-            decision = POLICIES[sentinel_policy](row["facts"])
+            decision = sentinel_decision(sentinel_policy, row["facts"], case)
         if decision == case.expected:
             continue
         f = row.get("facts") or {}

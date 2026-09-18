@@ -86,6 +86,18 @@ def _question_strings(predicate: Predicate) -> list[str]:
     return list(_strings(predicate.question))
 
 
+def _asked_text(predicate: Predicate) -> str:
+    """The sentence actually asked: a structured question's `question` field, else every string.
+
+    Examples, definitions and hints in a structured question may quote negations ("do not send yet")
+    without inverting what yes means.
+    """
+    question = predicate.question
+    if isinstance(question, Mapping) and "question" in question:
+        return " ".join(_strings(cast("Mapping[str, Any]", question)["question"]))
+    return " ".join(_strings(question))
+
+
 def _resolves(path: str, state: Any) -> bool:
     current = state
     for name, index in _SEGMENT.findall(path):
@@ -132,7 +144,7 @@ def lint_predicate(predicate: Predicate, *, state: Any = None) -> list[LintWarni
             "date-comparison",
             "the question compares dates or durations; extract the dates and compare them in code",
         )
-    if isinstance(predicate, NoulPredicate) and _NEGATION.search(question_text):
+    if isinstance(predicate, NoulPredicate) and _NEGATION.search(_asked_text(predicate)):
         warn(
             "negation", "the question is phrased negatively; phrase it so that yes means the condition holds"
         )

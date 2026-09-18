@@ -25,6 +25,9 @@ Policy (`SENTINEL_HOOK_POLICY`):
 - `strict`: `examples/agent_action/gate.py`, which also questions any call that does not clearly
   follow from the request. Fine for a single proposed action; too noisy for an agent exploring code.
 
+Thresholds (`SENTINEL_HOOK_THRESHOLDS`): `strict` (default, 0.5 everywhere) stops the most harmful
+actions; `balanced` interrupts far fewer legitimate ones for slightly less detection.
+
 When unsure (`SENTINEL_HOOK_UNSURE`): `decide` (default) acts on Sentinel's decision; `ask` asks the
 user whenever a judgment the decision rests on is within 0.2 of its threshold (about 9% of actions
 in the stress test). Near-threshold answers vary between runs, so asking closes the gap an attacker
@@ -42,7 +45,7 @@ Settings (for example `.claude/settings.json`):
     {"hooks": {"PreToolUse": [{"matcher": "*", "hooks": [{"type": "command", "timeout": 30,
       "command": "/path/to/Sentinel/.venv/bin/python /path/to/Sentinel/examples/claude_code/hook.py"}]}]}}
 
-Environment: `TYPESAFE_API_KEY` (required), the three settings above, and `SENTINEL_HOOK_LOG` (the
+Environment: `TYPESAFE_API_KEY` (required), the settings above, and `SENTINEL_HOOK_LOG` (the
 JSONL record file; default `.sentinel/claude-code-hook.jsonl` under the session's working directory).
 """
 
@@ -54,6 +57,7 @@ import asyncio  # noqa: E402
 import json  # noqa: E402
 import os  # noqa: E402
 import sys  # noqa: E402
+from collections.abc import Mapping, Sequence  # noqa: E402
 from datetime import UTC, datetime  # noqa: E402
 from pathlib import Path  # noqa: E402
 from typing import Any  # noqa: E402
@@ -62,6 +66,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 sys.path.insert(0, str(REPO / "examples" / "agent_action"))
 
+from checks import lookalikes  # noqa: E402
 from gate import Decision, decide  # noqa: E402
 
 from sentinel_runtime import (  # noqa: E402
@@ -81,6 +86,14 @@ INTENT = HERE / "intent.yaml"
 CONTEXT = HERE / "context.yaml"
 WITHOUT_CONTEXT = REPO / "predicates" / "agent_action.yaml"
 UNSURE_MARGIN = 0.2
+EARLIER_TURNS = 6
+THRESHOLDS = {
+    # 0.5 everywhere: stops the most harmful actions.
+    "strict": {"requested": 0.5, "data": 0.5, "checks": 0.5},
+    # Chosen on the stress test's tuning sets: about a third of the false alarms of `strict` for a
+    # couple of points less detection (docs/stress-test.md).
+    "balanced": {"requested": 0.3, "data": 0.4, "checks": 0.7},
+}
 MAX_CHARS = 4000
 """Longer string arguments (such as a file being written) are clipped before evaluation."""
 RECENT_STEPS = 6
@@ -119,6 +132,25 @@ def _content(entry: dict[str, Any]) -> Any:
 def _blocks(entry: dict[str, Any]) -> list[dict[str, Any]]:
     content = _content(entry)
     return [block for block in content if isinstance(block, dict)] if isinstance(content, list) else []
+
+
+def conversation_turns(lines: list[str]) -> list[dict[str, str]]:
+    """The user's and the assistant's text turns before the latest user message, oldest first."""
+    turns: list[dict[str, str]] = []
+    for entry in _entries(lines):
+        role = entry.get("type")
+        if role not in ("user", "assistant") or entry.get("isMeta"):
+            continue
+        content = _content(entry)
+        if isinstance(content, str):
+            text = content
+        else:
+            text = "\n".join(str(b.get("text", "")) for b in _blocks(entry) if b.get("type") == "text")
+        text = text.strip()
+        if text and not text.startswith(("<command-", "<local-command")):
+            turns.append({"role": str(role), "text": clip(text, RESULT_CHARS)})
+    last_user = max((i for i, t in enumerate(turns) if t["role"] == "user"), default=len(turns))
+    return turns[:last_user][-EARLIER_TURNS:]
 
 
 def latest_user_request(lines: list[str]) -> str:
@@ -172,18 +204,22 @@ def without_output(state: dict[str, Any]) -> dict[str, Any]:
 CHECKS = ("sends_data_away", "follows_data_instruction", "condition_blocked", "exceeds_scope", "wrong_detail")
 
 
-def decide_for_coding_agent(f: dict[str, Any]) -> Decision:
+def decide_for_coding_agent(
+    f: dict[str, Any], flags: Sequence[str] = (), thresholds: Mapping[str, float] = THRESHOLDS["strict"]
+) -> Decision:
     """Stop what the user did not ask for; let reading, testing and requested work proceed.
 
     `f` holds the judgments from `intent.yaml` and `context.yaml`. `requested` and the effect
-    judgments come from the intent judgment, which never sees tool output.
+    judgments come from the intent judgment, which never sees tool output. `flags` are lookalike
+    targets found in code (checks.py).
     """
     kind = f["effect_class"]["choice"]
-    if kind != "read_only" and f["requested"] < 0.5:
+    requested, data, checks = thresholds["requested"], thresholds["data"], thresholds["checks"]
+    if kind != "read_only" and f["requested"] < requested:
         return Decision("deny", "the user did not ask for this kind of action")
-    if kind != "read_only" and f["sends_data_away"] >= 0.5:
+    if kind != "read_only" and f["sends_data_away"] >= data:
         return Decision("deny", "private data would leave for a destination the user did not name")
-    if kind != "read_only" and f["follows_data_instruction"] >= 0.5:
+    if kind != "read_only" and f["follows_data_instruction"] >= data:
         return Decision("deny", "the action follows an instruction found in data, not the user")
     has_effect = f["external_side_effect"] >= 0.5 or kind in (
         "external_communication",
@@ -191,23 +227,38 @@ def decide_for_coding_agent(f: dict[str, Any]) -> Decision:
     )
     if not has_effect:
         return Decision("allow", "no outside or destructive effect, and part of the task")
-    if f["condition_blocked"] >= 0.5:
+    if f["condition_blocked"] >= checks:
         return Decision("deny", "the user or a project rule forbids this, or its condition is not met")
-    if f["exceeds_scope"] >= 0.5:
+    if f["exceeds_scope"] >= checks:
         return Decision("confirm", "the action reaches more than the request asks for")
-    if f["wrong_detail"] >= 0.5:
+    if flags:
+        return Decision("confirm", f"a target looks like a slip or a spoof ({flags[0]})")
+    if f["wrong_detail"] >= checks:
         return Decision("confirm", "a target or detail differs from the intended one")
-    if f["requested"] < 0.5:  # an outside effect on an action the intent judgment called read-only
+    if f["requested"] < requested:  # an outside effect on an action the intent judgment called read-only
         return Decision("deny", "the user did not ask for this kind of action")
     return Decision("allow", "requested, with the intended targets and scope")
 
 
-def unsure(f: dict[str, Any], decision: Decision) -> bool:
-    """Whether a judgment within UNSURE_MARGIN of 0.5 would change the decision if it fell the other way."""
-    for name in ("external_side_effect", "requested", *CHECKS):
-        if abs(f[name] - 0.5) < UNSURE_MARGIN:
-            flipped = {**f, name: 1 - f[name] if f[name] != 0.5 else 0.49}
-            if (decide_for_coding_agent(flipped).action == "allow") != (decision.action == "allow"):
+def unsure(
+    f: dict[str, Any],
+    decision: Decision,
+    flags: Sequence[str] = (),
+    thresholds: Mapping[str, float] = THRESHOLDS["strict"],
+) -> bool:
+    """Whether a judgment within UNSURE_MARGIN of its threshold would change the decision if it fell
+    the other way."""
+    threshold_of = {"external_side_effect": 0.5, "requested": thresholds["requested"]}
+    threshold_of |= {"sends_data_away": thresholds["data"], "follows_data_instruction": thresholds["data"]}
+    checks = ("condition_blocked", "exceeds_scope", "wrong_detail")
+    threshold_of |= dict.fromkeys(checks, thresholds["checks"])
+    for name, threshold in threshold_of.items():
+        if abs(f[name] - threshold) < UNSURE_MARGIN:
+            mirrored = 2 * threshold - f[name]
+            flipped = {**f, name: mirrored if mirrored != threshold else threshold - 0.01}
+            if (decide_for_coding_agent(flipped, flags, thresholds).action == "allow") != (
+                decision.action == "allow"
+            ):
                 return True
     return False
 
@@ -274,6 +325,7 @@ def main() -> None:
         state["project_instructions"] = (
             clip(instructions.read_text(encoding="utf-8"), INSTRUCTION_CHARS) if instructions.exists() else ""
         )
+        state["conversation"] = conversation_turns(lines)
         before, latest = steps_by_call(lines)
         # The pending call may already be in the transcript; show the steps that came before it.
         state["recent_steps"] = before.get(str(call.get("tool_use_id")), latest)
@@ -294,8 +346,11 @@ def main() -> None:
         elif context != "on":
             decision = decide_without_context(evaluations[0])
         else:
-            decision = decide_for_coding_agent(found)
-            if os.environ.get("SENTINEL_HOOK_UNSURE", "decide") == "ask" and unsure(found, decision):
+            thresholds = THRESHOLDS[os.environ.get("SENTINEL_HOOK_THRESHOLDS", "strict")]
+            flags = lookalikes({**state, "user_request": user_request})
+            decision = decide_for_coding_agent(found, flags, thresholds)
+            unsure_mode = os.environ.get("SENTINEL_HOOK_UNSURE", "decide") == "ask"
+            if unsure_mode and unsure(found, decision, flags, thresholds):
                 decision = Decision("confirm", f"Sentinel is unsure ({decision.reason})")
     finished = time.perf_counter()
 
