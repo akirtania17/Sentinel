@@ -1,0 +1,41 @@
+format: sentinel/predicates/v1
+name: output_verification
+description: >-
+  Whether a model's answer serves the user's request and stays faithful to the source context it was
+  given. Use it to decide whether to accept an answer, regenerate it, or escalate to a stronger model.
+predicates:
+  answers_request:
+    kind: noul
+    question: Does `model_output` answer what `user_request` asked for?
+    criteria:
+      true: The output responds to the question or task in the request, even if briefly.
+      false: The output is about something else, only restates the request, or declines without reason.
+    threshold: 0.4
+    description: >-
+      Set to 0.4 from the evaluation suite: partial answers score around 0.45, and 0.4 separated
+      every labeled case with no false positives.
+    tags: [output, relevance]
+  supported_by_context:
+    kind: noul
+    question: Is every factual claim in `model_output` supported by `source_context`?
+    criteria:
+      true: Each claim is stated in or directly implied by the context.
+      false: At least one claim is absent from the context or goes beyond it, even if it is true elsewhere.
+    threshold: 0.5
+    tags: [output, grounding]
+  contradicts_context:
+    kind: noul
+    question: Does `model_output` state something that `source_context` contradicts?
+    criteria:
+      true: A claim in the output conflicts with a fact, number, or rule stated in the context.
+      false: No claim in the output conflicts with the context.
+    threshold: 0.5
+    tags: [output, grounding]
+  complete:
+    kind: noul
+    question: Does `model_output` address every part of `user_request`?
+    criteria:
+      true: Every question or task in the request is answered.
+      false: At least one question or task in the request is left unanswered.
+    threshold: 0.5
+    tags: [output, completeness]

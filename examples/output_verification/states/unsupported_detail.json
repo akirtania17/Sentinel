@@ -1,0 +1,5 @@
+{
+  "user_request": "Can I get my money back for opened headphones I bought 10 days ago, and how long does it take?",
+  "source_context": "Acme refund policy. Unopened items can be returned within 30 days of delivery for a full refund. Opened items can be returned within 14 days of delivery for store credit only. Shipping fees are not refunded. Refunds to the original payment method are issued within 5 business days of Acme receiving the return. The policy does not say how long store credit takes to issue.",
+  "model_output": "You can return opened headphones within 14 days for store credit, not a refund. Store credit is usually emailed within 24 hours."
+}

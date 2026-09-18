@@ -7,6 +7,7 @@ import typer
 from sentinel_runtime import __version__
 from sentinel_runtime.cli import evals as _evals
 from sentinel_runtime.cli import predicates as _predicates
+from sentinel_runtime.cli.bench import bench
 from sentinel_runtime.cli.evaluate import evaluate
 from sentinel_runtime.cli.models import models
 from sentinel_runtime.cli.schema import schema
@@ -40,6 +41,7 @@ def main(
 app.command()(evaluate)
 app.command()(schema)
 app.command()(models)
+app.command()(bench)
 app.add_typer(_predicates.app, name="predicates")
 app.add_typer(_evals.app, name="eval")
 

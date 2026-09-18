@@ -37,8 +37,11 @@ EXIT_CACHE_MISS = 4
 
 # Terminals get their real width; pipes and logs get a fixed, wide width so tables never truncate.
 PIPE_WIDTH = 120
-console = Console(highlight=False, width=None if sys.stdout.isatty() else PIPE_WIDTH)
-err_console = Console(stderr=True, highlight=False, width=None if sys.stderr.isatty() else PIPE_WIDTH)
+# Plain message lines never wrap (soft_wrap); tables still lay out within the width.
+console = Console(highlight=False, soft_wrap=True, width=None if sys.stdout.isatty() else PIPE_WIDTH)
+err_console = Console(
+    stderr=True, highlight=False, soft_wrap=True, width=None if sys.stderr.isatty() else PIPE_WIDTH
+)
 
 
 def fail(message: str, code: int = EXIT_USAGE) -> NoReturn:

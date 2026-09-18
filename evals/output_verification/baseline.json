@@ -1,0 +1,2989 @@
+{
+  "format": "sentinel/eval-report/v1",
+  "sentinel_version": "0.1.0.dev0",
+  "created_at": "2026-09-18T05:39:31Z",
+  "suite": "output_verification",
+  "predicate_set": "output_verification",
+  "predicate_set_fingerprint": "sha256:96a829ca128e985c9971b805fc740e8fd05a5accf10a3282771470e932fa3a91",
+  "predicate_fingerprints": {
+    "answers_request": "sha256:101de72c2e15fbc2925a2414902a6368a317172171d9050b2b5919e96070cf7e",
+    "supported_by_context": "sha256:a5cd92870fa4a445b223fdf4277c34c2bc7e1dbe6c68ed163444421656030912",
+    "contradicts_context": "sha256:01a1c18809a255f7d5208f072304e0daa2415a3bb2becf18016a54424691bc76",
+    "complete": "sha256:b26a8549639542828b3961551558c8eeb9ca1177fc865d95c3d4a056cc43320e"
+  },
+  "model_requested": "jev-1.13.0",
+  "models_resolved": [
+    "jev-1.13.0"
+  ],
+  "cases_total": 24,
+  "cases_selected": 24,
+  "cases_evaluated": 24,
+  "cases_failed": 0,
+  "unreviewed_excluded": 0,
+  "tags": null,
+  "exclude_tags": null,
+  "thresholds": {
+    "answers_request": 0.4,
+    "supported_by_context": 0.5,
+    "contradicts_context": 0.5,
+    "complete": 0.5
+  },
+  "max_fpr": 0.05,
+  "predicates": {
+    "answers_request": {
+      "kind": "noul",
+      "evaluated": 24,
+      "labeled": 24,
+      "positives": 18,
+      "negatives": 6,
+      "ambiguous": 0,
+      "threshold": 0.4,
+      "threshold_source": "predicate",
+      "at_threshold": {
+        "threshold": 0.4,
+        "tp": 18,
+        "fp": 0,
+        "tn": 6,
+        "fn": 0,
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "fpr": 0.0
+      },
+      "sweep": [
+        {
+          "threshold": 0.05,
+          "tp": 18,
+          "fp": 0,
+          "tn": 6,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.1,
+          "tp": 18,
+          "fp": 0,
+          "tn": 6,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.15,
+          "tp": 18,
+          "fp": 0,
+          "tn": 6,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.2,
+          "tp": 18,
+          "fp": 0,
+          "tn": 6,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.25,
+          "tp": 18,
+          "fp": 0,
+          "tn": 6,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.3,
+          "tp": 18,
+          "fp": 0,
+          "tn": 6,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.35,
+          "tp": 18,
+          "fp": 0,
+          "tn": 6,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.4,
+          "tp": 18,
+          "fp": 0,
+          "tn": 6,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.45,
+          "tp": 17,
+          "fp": 0,
+          "tn": 6,
+          "fn": 1,
+          "accuracy": 0.958333,
+          "precision": 1.0,
+          "recall": 0.944444,
+          "f1": 0.971428,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.5,
+          "tp": 15,
+          "fp": 0,
+          "tn": 6,
+          "fn": 3,
+          "accuracy": 0.875,
+          "precision": 1.0,
+          "recall": 0.833333,
+          "f1": 0.909091,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.55,
+          "tp": 14,
+          "fp": 0,
+          "tn": 6,
+          "fn": 4,
+          "accuracy": 0.833333,
+          "precision": 1.0,
+          "recall": 0.777778,
+          "f1": 0.875,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.6,
+          "tp": 13,
+          "fp": 0,
+          "tn": 6,
+          "fn": 5,
+          "accuracy": 0.791667,
+          "precision": 1.0,
+          "recall": 0.722222,
+          "f1": 0.83871,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.65,
+          "tp": 12,
+          "fp": 0,
+          "tn": 6,
+          "fn": 6,
+          "accuracy": 0.75,
+          "precision": 1.0,
+          "recall": 0.666667,
+          "f1": 0.8,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.7,
+          "tp": 10,
+          "fp": 0,
+          "tn": 6,
+          "fn": 8,
+          "accuracy": 0.666667,
+          "precision": 1.0,
+          "recall": 0.555556,
+          "f1": 0.714286,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.75,
+          "tp": 10,
+          "fp": 0,
+          "tn": 6,
+          "fn": 8,
+          "accuracy": 0.666667,
+          "precision": 1.0,
+          "recall": 0.555556,
+          "f1": 0.714286,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.8,
+          "tp": 9,
+          "fp": 0,
+          "tn": 6,
+          "fn": 9,
+          "accuracy": 0.625,
+          "precision": 1.0,
+          "recall": 0.5,
+          "f1": 0.666667,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.85,
+          "tp": 8,
+          "fp": 0,
+          "tn": 6,
+          "fn": 10,
+          "accuracy": 0.583333,
+          "precision": 1.0,
+          "recall": 0.444444,
+          "f1": 0.615384,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.9,
+          "tp": 8,
+          "fp": 0,
+          "tn": 6,
+          "fn": 10,
+          "accuracy": 0.583333,
+          "precision": 1.0,
+          "recall": 0.444444,
+          "f1": 0.615384,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.95,
+          "tp": 5,
+          "fp": 0,
+          "tn": 6,
+          "fn": 13,
+          "accuracy": 0.458333,
+          "precision": 1.0,
+          "recall": 0.277778,
+          "f1": 0.434783,
+          "fpr": 0.0
+        }
+      ],
+      "roc_auc": 1.0,
+      "pr_auc": 1.0,
+      "brier": 0.072167,
+      "ece": 0.185,
+      "calibration": [
+        {
+          "lower": 0.0,
+          "upper": 0.1,
+          "n": 6,
+          "mean_probability": 0.021667,
+          "positive_rate": 0.0
+        },
+        {
+          "lower": 0.1,
+          "upper": 0.2,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.2,
+          "upper": 0.3,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.3,
+          "upper": 0.4,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.4,
+          "upper": 0.5,
+          "n": 3,
+          "mean_probability": 0.463333,
+          "positive_rate": 1.0
+        },
+        {
+          "lower": 0.5,
+          "upper": 0.6,
+          "n": 2,
+          "mean_probability": 0.54,
+          "positive_rate": 1.0
+        },
+        {
+          "lower": 0.6,
+          "upper": 0.7,
+          "n": 3,
+          "mean_probability": 0.666667,
+          "positive_rate": 1.0
+        },
+        {
+          "lower": 0.7,
+          "upper": 0.8,
+          "n": 1,
+          "mean_probability": 0.78,
+          "positive_rate": 1.0
+        },
+        {
+          "lower": 0.8,
+          "upper": 0.9,
+          "n": 1,
+          "mean_probability": 0.84,
+          "positive_rate": 1.0
+        },
+        {
+          "lower": 0.9,
+          "upper": 1.0,
+          "n": 8,
+          "mean_probability": 0.95,
+          "positive_rate": 1.0
+        }
+      ],
+      "best_f1": {
+        "objective": "max F1",
+        "threshold": 0.05,
+        "value": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "fpr": 0.0
+      },
+      "best_recall_at_fpr": {
+        "objective": "max recall with false-positive rate <= 0.05",
+        "threshold": 0.4,
+        "value": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "fpr": 0.0
+      },
+      "fragile": [
+        "refund_incomplete",
+        "api_incomplete",
+        "meeting_incomplete",
+        "meeting_wrong_number"
+      ],
+      "ambiguous_mean": null,
+      "ambiguous_min": null,
+      "ambiguous_max": null,
+      "ambiguous_in_band": 0,
+      "ambiguous_confident": [],
+      "notes": [
+        "calibration estimates are rough under 100 labeled cases"
+      ]
+    },
+    "supported_by_context": {
+      "kind": "noul",
+      "evaluated": 24,
+      "labeled": 21,
+      "positives": 11,
+      "negatives": 10,
+      "ambiguous": 3,
+      "threshold": 0.5,
+      "threshold_source": "predicate",
+      "at_threshold": {
+        "threshold": 0.5,
+        "tp": 11,
+        "fp": 0,
+        "tn": 10,
+        "fn": 0,
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "fpr": 0.0
+      },
+      "sweep": [
+        {
+          "threshold": 0.05,
+          "tp": 11,
+          "fp": 2,
+          "tn": 8,
+          "fn": 0,
+          "accuracy": 0.904762,
+          "precision": 0.846154,
+          "recall": 1.0,
+          "f1": 0.916667,
+          "fpr": 0.2
+        },
+        {
+          "threshold": 0.1,
+          "tp": 11,
+          "fp": 0,
+          "tn": 10,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.15,
+          "tp": 11,
+          "fp": 0,
+          "tn": 10,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.2,
+          "tp": 11,
+          "fp": 0,
+          "tn": 10,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.25,
+          "tp": 11,
+          "fp": 0,
+          "tn": 10,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.3,
+          "tp": 11,
+          "fp": 0,
+          "tn": 10,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.35,
+          "tp": 11,
+          "fp": 0,
+          "tn": 10,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.4,
+          "tp": 11,
+          "fp": 0,
+          "tn": 10,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.45,
+          "tp": 11,
+          "fp": 0,
+          "tn": 10,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.5,
+          "tp": 11,
+          "fp": 0,
+          "tn": 10,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.55,
+          "tp": 11,
+          "fp": 0,
+          "tn": 10,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.6,
+          "tp": 11,
+          "fp": 0,
+          "tn": 10,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.65,
+          "tp": 11,
+          "fp": 0,
+          "tn": 10,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.7,
+          "tp": 11,
+          "fp": 0,
+          "tn": 10,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.75,
+          "tp": 11,
+          "fp": 0,
+          "tn": 10,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.8,
+          "tp": 11,
+          "fp": 0,
+          "tn": 10,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.85,
+          "tp": 10,
+          "fp": 0,
+          "tn": 10,
+          "fn": 1,
+          "accuracy": 0.952381,
+          "precision": 1.0,
+          "recall": 0.909091,
+          "f1": 0.952381,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.9,
+          "tp": 9,
+          "fp": 0,
+          "tn": 10,
+          "fn": 2,
+          "accuracy": 0.904762,
+          "precision": 1.0,
+          "recall": 0.818182,
+          "f1": 0.9,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.95,
+          "tp": 6,
+          "fp": 0,
+          "tn": 10,
+          "fn": 5,
+          "accuracy": 0.761905,
+          "precision": 1.0,
+          "recall": 0.545455,
+          "f1": 0.705883,
+          "fpr": 0.0
+        }
+      ],
+      "roc_auc": 1.0,
+      "pr_auc": 1.0,
+      "brier": 0.003805,
+      "ece": 0.048095,
+      "calibration": [
+        {
+          "lower": 0.0,
+          "upper": 0.1,
+          "n": 10,
+          "mean_probability": 0.027,
+          "positive_rate": 0.0
+        },
+        {
+          "lower": 0.1,
+          "upper": 0.2,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.2,
+          "upper": 0.3,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.3,
+          "upper": 0.4,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.4,
+          "upper": 0.5,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.5,
+          "upper": 0.6,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.6,
+          "upper": 0.7,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.7,
+          "upper": 0.8,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.8,
+          "upper": 0.9,
+          "n": 2,
+          "mean_probability": 0.865,
+          "positive_rate": 1.0
+        },
+        {
+          "lower": 0.9,
+          "upper": 1.0,
+          "n": 9,
+          "mean_probability": 0.947778,
+          "positive_rate": 1.0
+        }
+      ],
+      "best_f1": {
+        "objective": "max F1",
+        "threshold": 0.1,
+        "value": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "fpr": 0.0
+      },
+      "best_recall_at_fpr": {
+        "objective": "max recall with false-positive rate <= 0.05",
+        "threshold": 0.8,
+        "value": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "fpr": 0.0
+      },
+      "fragile": [],
+      "ambiguous_mean": 0.243333,
+      "ambiguous_min": 0.07,
+      "ambiguous_max": 0.46,
+      "ambiguous_in_band": 1,
+      "ambiguous_confident": [
+        "meeting_refusal"
+      ],
+      "notes": [
+        "calibration estimates are rough under 100 labeled cases"
+      ]
+    },
+    "contradicts_context": {
+      "kind": "noul",
+      "evaluated": 24,
+      "labeled": 21,
+      "positives": 6,
+      "negatives": 15,
+      "ambiguous": 3,
+      "threshold": 0.5,
+      "threshold_source": "predicate",
+      "at_threshold": {
+        "threshold": 0.5,
+        "tp": 6,
+        "fp": 0,
+        "tn": 15,
+        "fn": 0,
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "fpr": 0.0
+      },
+      "sweep": [
+        {
+          "threshold": 0.05,
+          "tp": 6,
+          "fp": 4,
+          "tn": 11,
+          "fn": 0,
+          "accuracy": 0.809524,
+          "precision": 0.6,
+          "recall": 1.0,
+          "f1": 0.75,
+          "fpr": 0.266667
+        },
+        {
+          "threshold": 0.1,
+          "tp": 6,
+          "fp": 2,
+          "tn": 13,
+          "fn": 0,
+          "accuracy": 0.904762,
+          "precision": 0.75,
+          "recall": 1.0,
+          "f1": 0.857143,
+          "fpr": 0.133333
+        },
+        {
+          "threshold": 0.15,
+          "tp": 6,
+          "fp": 1,
+          "tn": 14,
+          "fn": 0,
+          "accuracy": 0.952381,
+          "precision": 0.857143,
+          "recall": 1.0,
+          "f1": 0.923077,
+          "fpr": 0.066667
+        },
+        {
+          "threshold": 0.2,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.25,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.3,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.35,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.4,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.45,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.5,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.55,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.6,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.65,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.7,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.75,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.8,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.85,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.9,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.95,
+          "tp": 6,
+          "fp": 0,
+          "tn": 15,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        }
+      ],
+      "roc_auc": 1.0,
+      "pr_auc": 1.0,
+      "brier": 0.003414,
+      "ece": 0.042381,
+      "calibration": [
+        {
+          "lower": 0.0,
+          "upper": 0.1,
+          "n": 13,
+          "mean_probability": 0.037692,
+          "positive_rate": 0.0
+        },
+        {
+          "lower": 0.1,
+          "upper": 0.2,
+          "n": 2,
+          "mean_probability": 0.15,
+          "positive_rate": 0.0
+        },
+        {
+          "lower": 0.2,
+          "upper": 0.3,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.3,
+          "upper": 0.4,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.4,
+          "upper": 0.5,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.5,
+          "upper": 0.6,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.6,
+          "upper": 0.7,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.7,
+          "upper": 0.8,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.8,
+          "upper": 0.9,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.9,
+          "upper": 1.0,
+          "n": 6,
+          "mean_probability": 0.983333,
+          "positive_rate": 1.0
+        }
+      ],
+      "best_f1": {
+        "objective": "max F1",
+        "threshold": 0.2,
+        "value": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "fpr": 0.0
+      },
+      "best_recall_at_fpr": {
+        "objective": "max recall with false-positive rate <= 0.05",
+        "threshold": 0.95,
+        "value": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "fpr": 0.0
+      },
+      "fragile": [],
+      "ambiguous_mean": 0.48,
+      "ambiguous_min": 0.2,
+      "ambiguous_max": 0.97,
+      "ambiguous_in_band": 0,
+      "ambiguous_confident": [
+        "meeting_refusal"
+      ],
+      "notes": [
+        "calibration estimates are rough under 100 labeled cases"
+      ]
+    },
+    "complete": {
+      "kind": "noul",
+      "evaluated": 24,
+      "labeled": 18,
+      "positives": 9,
+      "negatives": 9,
+      "ambiguous": 0,
+      "threshold": 0.5,
+      "threshold_source": "predicate",
+      "at_threshold": {
+        "threshold": 0.5,
+        "tp": 9,
+        "fp": 0,
+        "tn": 9,
+        "fn": 0,
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "fpr": 0.0
+      },
+      "sweep": [
+        {
+          "threshold": 0.05,
+          "tp": 9,
+          "fp": 1,
+          "tn": 8,
+          "fn": 0,
+          "accuracy": 0.944444,
+          "precision": 0.9,
+          "recall": 1.0,
+          "f1": 0.947368,
+          "fpr": 0.111111
+        },
+        {
+          "threshold": 0.1,
+          "tp": 9,
+          "fp": 0,
+          "tn": 9,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.15,
+          "tp": 9,
+          "fp": 0,
+          "tn": 9,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.2,
+          "tp": 9,
+          "fp": 0,
+          "tn": 9,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.25,
+          "tp": 9,
+          "fp": 0,
+          "tn": 9,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.3,
+          "tp": 9,
+          "fp": 0,
+          "tn": 9,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.35,
+          "tp": 9,
+          "fp": 0,
+          "tn": 9,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.4,
+          "tp": 9,
+          "fp": 0,
+          "tn": 9,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.45,
+          "tp": 9,
+          "fp": 0,
+          "tn": 9,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.5,
+          "tp": 9,
+          "fp": 0,
+          "tn": 9,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.55,
+          "tp": 9,
+          "fp": 0,
+          "tn": 9,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.6,
+          "tp": 9,
+          "fp": 0,
+          "tn": 9,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.65,
+          "tp": 9,
+          "fp": 0,
+          "tn": 9,
+          "fn": 0,
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.7,
+          "tp": 8,
+          "fp": 0,
+          "tn": 9,
+          "fn": 1,
+          "accuracy": 0.944444,
+          "precision": 1.0,
+          "recall": 0.888889,
+          "f1": 0.941177,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.75,
+          "tp": 8,
+          "fp": 0,
+          "tn": 9,
+          "fn": 1,
+          "accuracy": 0.944444,
+          "precision": 1.0,
+          "recall": 0.888889,
+          "f1": 0.941177,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.8,
+          "tp": 7,
+          "fp": 0,
+          "tn": 9,
+          "fn": 2,
+          "accuracy": 0.888889,
+          "precision": 1.0,
+          "recall": 0.777778,
+          "f1": 0.875,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.85,
+          "tp": 7,
+          "fp": 0,
+          "tn": 9,
+          "fn": 2,
+          "accuracy": 0.888889,
+          "precision": 1.0,
+          "recall": 0.777778,
+          "f1": 0.875,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.9,
+          "tp": 3,
+          "fp": 0,
+          "tn": 9,
+          "fn": 6,
+          "accuracy": 0.666667,
+          "precision": 1.0,
+          "recall": 0.333333,
+          "f1": 0.5,
+          "fpr": 0.0
+        },
+        {
+          "threshold": 0.95,
+          "tp": 2,
+          "fp": 0,
+          "tn": 9,
+          "fn": 7,
+          "accuracy": 0.611111,
+          "precision": 1.0,
+          "recall": 0.222222,
+          "f1": 0.363636,
+          "fpr": 0.0
+        }
+      ],
+      "roc_auc": 1.0,
+      "pr_auc": 1.0,
+      "brier": 0.013333,
+      "ece": 0.082222,
+      "calibration": [
+        {
+          "lower": 0.0,
+          "upper": 0.1,
+          "n": 9,
+          "mean_probability": 0.028889,
+          "positive_rate": 0.0
+        },
+        {
+          "lower": 0.1,
+          "upper": 0.2,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.2,
+          "upper": 0.3,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.3,
+          "upper": 0.4,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.4,
+          "upper": 0.5,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.5,
+          "upper": 0.6,
+          "n": 0,
+          "mean_probability": null,
+          "positive_rate": null
+        },
+        {
+          "lower": 0.6,
+          "upper": 0.7,
+          "n": 1,
+          "mean_probability": 0.69,
+          "positive_rate": 1.0
+        },
+        {
+          "lower": 0.7,
+          "upper": 0.8,
+          "n": 1,
+          "mean_probability": 0.77,
+          "positive_rate": 1.0
+        },
+        {
+          "lower": 0.8,
+          "upper": 0.9,
+          "n": 4,
+          "mean_probability": 0.87,
+          "positive_rate": 1.0
+        },
+        {
+          "lower": 0.9,
+          "upper": 1.0,
+          "n": 3,
+          "mean_probability": 0.946667,
+          "positive_rate": 1.0
+        }
+      ],
+      "best_f1": {
+        "objective": "max F1",
+        "threshold": 0.1,
+        "value": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "fpr": 0.0
+      },
+      "best_recall_at_fpr": {
+        "objective": "max recall with false-positive rate <= 0.05",
+        "threshold": 0.65,
+        "value": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "fpr": 0.0
+      },
+      "fragile": [],
+      "ambiguous_mean": null,
+      "ambiguous_min": null,
+      "ambiguous_max": null,
+      "ambiguous_in_band": 0,
+      "ambiguous_confident": [],
+      "notes": [
+        "calibration estimates are rough under 100 labeled cases"
+      ]
+    }
+  },
+  "slices": {
+    "ambiguous": {
+      "answers_request": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": null
+      },
+      "supported_by_context": {
+        "labeled": 0,
+        "metric": "f1",
+        "value": null
+      },
+      "contradicts_context": {
+        "labeled": 0,
+        "metric": "f1",
+        "value": null
+      },
+      "complete": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": null
+      }
+    },
+    "api": {
+      "answers_request": {
+        "labeled": 8,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "supported_by_context": {
+        "labeled": 7,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "contradicts_context": {
+        "labeled": 7,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "complete": {
+        "labeled": 6,
+        "metric": "f1",
+        "value": 1.0
+      }
+    },
+    "contradiction": {
+      "answers_request": {
+        "labeled": 6,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "supported_by_context": {
+        "labeled": 6,
+        "metric": "f1",
+        "value": null
+      },
+      "contradicts_context": {
+        "labeled": 6,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "complete": {
+        "labeled": 0,
+        "metric": "f1",
+        "value": null
+      }
+    },
+    "hedged": {
+      "answers_request": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "supported_by_context": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "contradicts_context": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": null
+      },
+      "complete": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": 1.0
+      }
+    },
+    "incomplete": {
+      "answers_request": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "supported_by_context": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "contradicts_context": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": null
+      },
+      "complete": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": null
+      }
+    },
+    "meeting": {
+      "answers_request": {
+        "labeled": 8,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "supported_by_context": {
+        "labeled": 7,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "contradicts_context": {
+        "labeled": 7,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "complete": {
+        "labeled": 6,
+        "metric": "f1",
+        "value": 1.0
+      }
+    },
+    "numbers": {
+      "answers_request": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "supported_by_context": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": null
+      },
+      "contradicts_context": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "complete": {
+        "labeled": 0,
+        "metric": "f1",
+        "value": null
+      }
+    },
+    "off_topic": {
+      "answers_request": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": null
+      },
+      "supported_by_context": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "contradicts_context": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": null
+      },
+      "complete": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": null
+      }
+    },
+    "positive": {
+      "answers_request": {
+        "labeled": 6,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "supported_by_context": {
+        "labeled": 6,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "contradicts_context": {
+        "labeled": 6,
+        "metric": "f1",
+        "value": null
+      },
+      "complete": {
+        "labeled": 6,
+        "metric": "f1",
+        "value": 1.0
+      }
+    },
+    "refund": {
+      "answers_request": {
+        "labeled": 8,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "supported_by_context": {
+        "labeled": 7,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "contradicts_context": {
+        "labeled": 7,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "complete": {
+        "labeled": 6,
+        "metric": "f1",
+        "value": 1.0
+      }
+    },
+    "refusal": {
+      "answers_request": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": null
+      },
+      "supported_by_context": {
+        "labeled": 0,
+        "metric": "f1",
+        "value": null
+      },
+      "contradicts_context": {
+        "labeled": 0,
+        "metric": "f1",
+        "value": null
+      },
+      "complete": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": null
+      }
+    },
+    "unsupported": {
+      "answers_request": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": 1.0
+      },
+      "supported_by_context": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": null
+      },
+      "contradicts_context": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": null
+      },
+      "complete": {
+        "labeled": 3,
+        "metric": "f1",
+        "value": 1.0
+      }
+    }
+  },
+  "usage": {
+    "evaluations": 24,
+    "requests": 24,
+    "input_tokens": 15799,
+    "estimated_cost_usd": 0.00066356,
+    "latency_p50_ms": 176.683,
+    "latency_p95_ms": 476.929,
+    "replayed": 24
+  },
+  "cases": [
+    {
+      "id": "refund_faithful",
+      "tags": [
+        "refund",
+        "positive"
+      ],
+      "source": "handwritten",
+      "note": null,
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.98,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.9,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.04,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.92,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "refund_incomplete",
+      "tags": [
+        "refund",
+        "incomplete"
+      ],
+      "source": "handwritten",
+      "note": null,
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.48,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.84,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.06,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.09,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "refund_contradicts",
+      "tags": [
+        "refund",
+        "contradiction"
+      ],
+      "source": "handwritten",
+      "note": "Completeness is unlabeled: the answer covers both parts, but with wrong facts.",
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.68,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.02,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.98,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.41,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": false,
+          "expected": null,
+          "correct": null
+        }
+      }
+    },
+    {
+      "id": "refund_unsupported",
+      "tags": [
+        "refund",
+        "unsupported"
+      ],
+      "source": "handwritten",
+      "note": "The extra detail may be true elsewhere, but the source does not state it.",
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.91,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.06,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.11,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.77,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "refund_off_topic",
+      "tags": [
+        "refund",
+        "off_topic"
+      ],
+      "source": "handwritten",
+      "note": "Shipping coverage is not in the refund policy, so the claims are unsupported as well as off topic.",
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.01,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.01,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.04,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.01,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "refund_refusal",
+      "tags": [
+        "refund",
+        "refusal",
+        "ambiguous"
+      ],
+      "source": "handwritten",
+      "note": "Whether a refusal makes supported or contradicting claims is debatable, so both are unlabeled.",
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.04,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.46,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": null,
+          "correct": null
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.2,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": null,
+          "correct": null
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.02,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "refund_hedged",
+      "tags": [
+        "refund",
+        "positive",
+        "hedged"
+      ],
+      "source": "handwritten",
+      "note": null,
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.95,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.89,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.04,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.88,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "refund_wrong_number",
+      "tags": [
+        "refund",
+        "contradiction",
+        "numbers"
+      ],
+      "source": "handwritten",
+      "note": "Completeness is unlabeled: the answer covers both parts, but with a wrong number.",
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.68,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.02,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.98,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.51,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": false,
+          "expected": null,
+          "correct": null
+        }
+      }
+    },
+    {
+      "id": "api_faithful",
+      "tags": [
+        "api",
+        "positive"
+      ],
+      "source": "handwritten",
+      "note": null,
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.98,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.97,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.02,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.96,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "api_incomplete",
+      "tags": [
+        "api",
+        "incomplete"
+      ],
+      "source": "handwritten",
+      "note": null,
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.42,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.98,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.03,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.04,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "api_contradicts",
+      "tags": [
+        "api",
+        "contradiction"
+      ],
+      "source": "handwritten",
+      "note": "Completeness is unlabeled: the answer covers both parts, but with wrong facts.",
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.64,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.01,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.99,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.65,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": false,
+          "expected": null,
+          "correct": null
+        }
+      }
+    },
+    {
+      "id": "api_unsupported",
+      "tags": [
+        "api",
+        "unsupported"
+      ],
+      "source": "handwritten",
+      "note": "The usage graph is not in the source; nothing in the answer conflicts with it.",
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.94,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.06,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.08,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.86,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "api_off_topic",
+      "tags": [
+        "api",
+        "off_topic"
+      ],
+      "source": "handwritten",
+      "note": "The claims come from the source, so they are supported, but they answer a different question.",
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.02,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.96,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.04,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.01,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "api_refusal",
+      "tags": [
+        "api",
+        "refusal",
+        "ambiguous"
+      ],
+      "source": "handwritten",
+      "note": "Whether a refusal makes supported or contradicting claims is debatable, so both are unlabeled.",
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.01,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.2,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": null,
+          "correct": null
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.27,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": null,
+          "correct": null
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.01,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "api_hedged",
+      "tags": [
+        "api",
+        "positive",
+        "hedged"
+      ],
+      "source": "handwritten",
+      "note": null,
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.97,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.91,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.03,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.89,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "api_wrong_number",
+      "tags": [
+        "api",
+        "contradiction",
+        "numbers"
+      ],
+      "source": "handwritten",
+      "note": "Completeness is unlabeled: the answer covers both parts, but with a wrong number.",
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.78,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.03,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.98,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.7,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": false,
+          "expected": null,
+          "correct": null
+        }
+      }
+    },
+    {
+      "id": "meeting_faithful",
+      "tags": [
+        "meeting",
+        "positive"
+      ],
+      "source": "handwritten",
+      "note": null,
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.9,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.97,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.03,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.85,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "meeting_incomplete",
+      "tags": [
+        "meeting",
+        "incomplete"
+      ],
+      "source": "handwritten",
+      "note": null,
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.49,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.97,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.02,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.04,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "meeting_contradicts",
+      "tags": [
+        "meeting",
+        "contradiction"
+      ],
+      "source": "handwritten",
+      "note": "Completeness is unlabeled: the answer covers both parts, but with wrong facts.",
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.58,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.01,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.99,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.68,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": false,
+          "expected": null,
+          "correct": null
+        }
+      }
+    },
+    {
+      "id": "meeting_unsupported",
+      "tags": [
+        "meeting",
+        "unsupported"
+      ],
+      "source": "handwritten",
+      "note": "The extra detail may be true elsewhere, but the source does not state it.",
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.84,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.03,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.19,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.69,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "meeting_off_topic",
+      "tags": [
+        "meeting",
+        "off_topic"
+      ],
+      "source": "handwritten",
+      "note": "The claims come from the source, so they are supported, but they answer a different question.",
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.02,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.95,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.03,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.02,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "meeting_refusal",
+      "tags": [
+        "meeting",
+        "refusal",
+        "ambiguous"
+      ],
+      "source": "handwritten",
+      "note": "Whether a refusal makes supported or contradicting claims is debatable, so both are unlabeled.",
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.03,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.07,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": null,
+          "correct": null
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.97,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": null,
+          "correct": null
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.02,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "meeting_hedged",
+      "tags": [
+        "meeting",
+        "positive",
+        "hedged"
+      ],
+      "source": "handwritten",
+      "note": null,
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.97,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.92,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.03,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.96,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "meeting_wrong_number",
+      "tags": [
+        "meeting",
+        "contradiction",
+        "numbers"
+      ],
+      "source": "handwritten",
+      "note": "Completeness is unlabeled: the answer covers both parts, but with a wrong number.",
+      "error": null,
+      "predictions": {
+        "answers_request": {
+          "kind": "noul",
+          "value": 0.5,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "supported_by_context": {
+          "kind": "noul",
+          "value": 0.02,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": false,
+          "correct": true
+        },
+        "contradicts_context": {
+          "kind": "noul",
+          "value": 0.98,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": true,
+          "expected": true,
+          "correct": true
+        },
+        "complete": {
+          "kind": "noul",
+          "value": 0.31,
+          "confidence": null,
+          "probabilities": null,
+          "nearest_level": null,
+          "labeled": false,
+          "expected": null,
+          "correct": null
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,404 @@
+# Written by hand (generated once from a table for consistency); edit this file directly.
+format: sentinel/evals/v1
+predicate_set: ../../predicates/output_verification.yaml
+description: Candidate answers checked against the source they were given. answers_request is true when
+  the answer responds to the request; supported_by_context is true when every claim appears in or follows
+  from the source; contradicts_context is true when any claim conflicts with the source; complete is true
+  when every part of the request is answered.
+cases:
+- id: refund_faithful
+  tags:
+  - refund
+  - positive
+  state:
+    user_request: Can I return opened headphones I bought 10 days ago, and what will I get back?
+    source_context: Acme refund policy. Unopened items can be returned within 30 days of delivery for
+      a full refund. Opened items can be returned within 14 days of delivery for store credit only. Shipping
+      fees are not refunded. Refunds to the original payment method are issued within 5 business days
+      of Acme receiving the return.
+    model_output: Yes. Opened items can be returned within 14 days, so at 10 days you qualify, but you
+      get store credit only, not a refund.
+  expect:
+    answers_request: true
+    supported_by_context: true
+    contradicts_context: false
+    complete: true
+- id: refund_incomplete
+  tags:
+  - refund
+  - incomplete
+  state:
+    user_request: Can I return opened headphones I bought 10 days ago, and what will I get back?
+    source_context: Acme refund policy. Unopened items can be returned within 30 days of delivery for
+      a full refund. Opened items can be returned within 14 days of delivery for store credit only. Shipping
+      fees are not refunded. Refunds to the original payment method are issued within 5 business days
+      of Acme receiving the return.
+    model_output: Yes, opened items can be returned within 14 days of delivery.
+  expect:
+    answers_request: true
+    supported_by_context: true
+    contradicts_context: false
+    complete: false
+- id: refund_contradicts
+  tags:
+  - refund
+  - contradiction
+  state:
+    user_request: Can I return opened headphones I bought 10 days ago, and what will I get back?
+    source_context: Acme refund policy. Unopened items can be returned within 30 days of delivery for
+      a full refund. Opened items can be returned within 14 days of delivery for store credit only. Shipping
+      fees are not refunded. Refunds to the original payment method are issued within 5 business days
+      of Acme receiving the return.
+    model_output: Yes, you can return them within 30 days for a full refund to your card.
+  expect:
+    answers_request: true
+    supported_by_context: false
+    contradicts_context: true
+  note: 'Completeness is unlabeled: the answer covers both parts, but with wrong facts.'
+- id: refund_unsupported
+  tags:
+  - refund
+  - unsupported
+  state:
+    user_request: Can I return opened headphones I bought 10 days ago, and what will I get back?
+    source_context: Acme refund policy. Unopened items can be returned within 30 days of delivery for
+      a full refund. Opened items can be returned within 14 days of delivery for store credit only. Shipping
+      fees are not refunded. Refunds to the original payment method are issued within 5 business days
+      of Acme receiving the return.
+    model_output: Yes, within 14 days you get store credit, and Acme will send a prepaid return label.
+  expect:
+    answers_request: true
+    supported_by_context: false
+    contradicts_context: false
+    complete: true
+  note: The extra detail may be true elsewhere, but the source does not state it.
+- id: refund_off_topic
+  tags:
+  - refund
+  - off_topic
+  state:
+    user_request: Can I return opened headphones I bought 10 days ago, and what will I get back?
+    source_context: Acme refund policy. Unopened items can be returned within 30 days of delivery for
+      a full refund. Opened items can be returned within 14 days of delivery for store credit only. Shipping
+      fees are not refunded. Refunds to the original payment method are issued within 5 business days
+      of Acme receiving the return.
+    model_output: Acme ships to over 40 countries and offers express delivery.
+  expect:
+    answers_request: false
+    supported_by_context: false
+    contradicts_context: false
+    complete: false
+  note: Shipping coverage is not in the refund policy, so the claims are unsupported as well as off topic.
+- id: refund_refusal
+  tags:
+  - refund
+  - refusal
+  - ambiguous
+  state:
+    user_request: Can I return opened headphones I bought 10 days ago, and what will I get back?
+    source_context: Acme refund policy. Unopened items can be returned within 30 days of delivery for
+      a full refund. Opened items can be returned within 14 days of delivery for store credit only. Shipping
+      fees are not refunded. Refunds to the original payment method are issued within 5 business days
+      of Acme receiving the return.
+    model_output: I don't have enough information to answer that.
+  expect:
+    answers_request: false
+    supported_by_context: null
+    contradicts_context: null
+    complete: false
+  note: Whether a refusal makes supported or contradicting claims is debatable, so both are unlabeled.
+- id: refund_hedged
+  tags:
+  - refund
+  - positive
+  - hedged
+  state:
+    user_request: Can I return opened headphones I bought 10 days ago, and what will I get back?
+    source_context: Acme refund policy. Unopened items can be returned within 30 days of delivery for
+      a full refund. Opened items can be returned within 14 days of delivery for store credit only. Shipping
+      fees are not refunded. Refunds to the original payment method are issued within 5 business days
+      of Acme receiving the return.
+    model_output: 'It looks like you can: opened items are returnable within 14 days, though only for
+      store credit rather than money back.'
+  expect:
+    answers_request: true
+    supported_by_context: true
+    contradicts_context: false
+    complete: true
+- id: refund_wrong_number
+  tags:
+  - refund
+  - contradiction
+  - numbers
+  state:
+    user_request: Can I return opened headphones I bought 10 days ago, and what will I get back?
+    source_context: Acme refund policy. Unopened items can be returned within 30 days of delivery for
+      a full refund. Opened items can be returned within 14 days of delivery for store credit only. Shipping
+      fees are not refunded. Refunds to the original payment method are issued within 5 business days
+      of Acme receiving the return.
+    model_output: Yes, opened items can be returned within 7 days for store credit, so you qualify.
+  expect:
+    answers_request: true
+    supported_by_context: false
+    contradicts_context: true
+  note: 'Completeness is unlabeled: the answer covers both parts, but with a wrong number.'
+- id: api_faithful
+  tags:
+  - api
+  - positive
+  state:
+    user_request: What is the rate limit on the free plan, and what happens if I go over it?
+    source_context: Orbit API limits. The free plan allows 100 requests per minute per API key; the Pro
+      plan allows 1,000. Requests over the limit receive HTTP 429 with a Retry-After header giving the
+      wait in seconds. Keys are created in the dashboard under Settings and can be revoked at any time.
+    model_output: The free plan allows 100 requests per minute per key. Over the limit you get HTTP 429
+      with a Retry-After header telling you how many seconds to wait.
+  expect:
+    answers_request: true
+    supported_by_context: true
+    contradicts_context: false
+    complete: true
+- id: api_incomplete
+  tags:
+  - api
+  - incomplete
+  state:
+    user_request: What is the rate limit on the free plan, and what happens if I go over it?
+    source_context: Orbit API limits. The free plan allows 100 requests per minute per API key; the Pro
+      plan allows 1,000. Requests over the limit receive HTTP 429 with a Retry-After header giving the
+      wait in seconds. Keys are created in the dashboard under Settings and can be revoked at any time.
+    model_output: The free plan allows 100 requests per minute per API key.
+  expect:
+    answers_request: true
+    supported_by_context: true
+    contradicts_context: false
+    complete: false
+- id: api_contradicts
+  tags:
+  - api
+  - contradiction
+  state:
+    user_request: What is the rate limit on the free plan, and what happens if I go over it?
+    source_context: Orbit API limits. The free plan allows 100 requests per minute per API key; the Pro
+      plan allows 1,000. Requests over the limit receive HTTP 429 with a Retry-After header giving the
+      wait in seconds. Keys are created in the dashboard under Settings and can be revoked at any time.
+    model_output: The free plan allows 1,000 requests per minute, and extra requests are queued rather
+      than rejected.
+  expect:
+    answers_request: true
+    supported_by_context: false
+    contradicts_context: true
+  note: 'Completeness is unlabeled: the answer covers both parts, but with wrong facts.'
+- id: api_unsupported
+  tags:
+  - api
+  - unsupported
+  state:
+    user_request: What is the rate limit on the free plan, and what happens if I go over it?
+    source_context: Orbit API limits. The free plan allows 100 requests per minute per API key; the Pro
+      plan allows 1,000. Requests over the limit receive HTTP 429 with a Retry-After header giving the
+      wait in seconds. Keys are created in the dashboard under Settings and can be revoked at any time.
+    model_output: The free plan allows 100 requests per minute. If you go over, you get HTTP 429 with
+      a Retry-After header, and the dashboard shows a usage graph so you can see how close you are to
+      the limit.
+  expect:
+    answers_request: true
+    supported_by_context: false
+    contradicts_context: false
+    complete: true
+  note: The usage graph is not in the source; nothing in the answer conflicts with it.
+- id: api_off_topic
+  tags:
+  - api
+  - off_topic
+  state:
+    user_request: What is the rate limit on the free plan, and what happens if I go over it?
+    source_context: Orbit API limits. The free plan allows 100 requests per minute per API key; the Pro
+      plan allows 1,000. Requests over the limit receive HTTP 429 with a Retry-After header giving the
+      wait in seconds. Keys are created in the dashboard under Settings and can be revoked at any time.
+    model_output: You can create API keys in the dashboard under Settings.
+  expect:
+    answers_request: false
+    supported_by_context: true
+    contradicts_context: false
+    complete: false
+  note: The claims come from the source, so they are supported, but they answer a different question.
+- id: api_refusal
+  tags:
+  - api
+  - refusal
+  - ambiguous
+  state:
+    user_request: What is the rate limit on the free plan, and what happens if I go over it?
+    source_context: Orbit API limits. The free plan allows 100 requests per minute per API key; the Pro
+      plan allows 1,000. Requests over the limit receive HTTP 429 with a Retry-After header giving the
+      wait in seconds. Keys are created in the dashboard under Settings and can be revoked at any time.
+    model_output: Sorry, I can't help with questions about rate limits.
+  expect:
+    answers_request: false
+    supported_by_context: null
+    contradicts_context: null
+    complete: false
+  note: Whether a refusal makes supported or contradicting claims is debatable, so both are unlabeled.
+- id: api_hedged
+  tags:
+  - api
+  - positive
+  - hedged
+  state:
+    user_request: What is the rate limit on the free plan, and what happens if I go over it?
+    source_context: Orbit API limits. The free plan allows 100 requests per minute per API key; the Pro
+      plan allows 1,000. Requests over the limit receive HTTP 429 with a Retry-After header giving the
+      wait in seconds. Keys are created in the dashboard under Settings and can be revoked at any time.
+    model_output: If I read the docs right, it's 100 requests a minute per key on free, and going over
+      returns a 429 with a Retry-After header.
+  expect:
+    answers_request: true
+    supported_by_context: true
+    contradicts_context: false
+    complete: true
+- id: api_wrong_number
+  tags:
+  - api
+  - contradiction
+  - numbers
+  state:
+    user_request: What is the rate limit on the free plan, and what happens if I go over it?
+    source_context: Orbit API limits. The free plan allows 100 requests per minute per API key; the Pro
+      plan allows 1,000. Requests over the limit receive HTTP 429 with a Retry-After header giving the
+      wait in seconds. Keys are created in the dashboard under Settings and can be revoked at any time.
+    model_output: The free plan allows 10 requests per minute; above that you receive HTTP 429 with Retry-After.
+  expect:
+    answers_request: true
+    supported_by_context: false
+    contradicts_context: true
+  note: 'Completeness is unlabeled: the answer covers both parts, but with a wrong number.'
+- id: meeting_faithful
+  tags:
+  - meeting
+  - positive
+  state:
+    user_request: When is the launch now, and why did it move?
+    source_context: 'Decisions from the September 12 launch sync: the launch moves from October 1 to October
+      8 because the payments integration needs another week of testing. Maria owns the release checklist.
+      Dev will draft the announcement by October 3. The marketing budget stays at 20,000 dollars.'
+    model_output: The launch moved from October 1 to October 8 because the payments integration needs
+      another week of testing.
+  expect:
+    answers_request: true
+    supported_by_context: true
+    contradicts_context: false
+    complete: true
+- id: meeting_incomplete
+  tags:
+  - meeting
+  - incomplete
+  state:
+    user_request: When is the launch now, and why did it move?
+    source_context: 'Decisions from the September 12 launch sync: the launch moves from October 1 to October
+      8 because the payments integration needs another week of testing. Maria owns the release checklist.
+      Dev will draft the announcement by October 3. The marketing budget stays at 20,000 dollars.'
+    model_output: The launch is now on October 8.
+  expect:
+    answers_request: true
+    supported_by_context: true
+    contradicts_context: false
+    complete: false
+- id: meeting_contradicts
+  tags:
+  - meeting
+  - contradiction
+  state:
+    user_request: When is the launch now, and why did it move?
+    source_context: 'Decisions from the September 12 launch sync: the launch moves from October 1 to October
+      8 because the payments integration needs another week of testing. Maria owns the release checklist.
+      Dev will draft the announcement by October 3. The marketing budget stays at 20,000 dollars.'
+    model_output: The launch moved to October 15 because marketing needed more budget.
+  expect:
+    answers_request: true
+    supported_by_context: false
+    contradicts_context: true
+  note: 'Completeness is unlabeled: the answer covers both parts, but with wrong facts.'
+- id: meeting_unsupported
+  tags:
+  - meeting
+  - unsupported
+  state:
+    user_request: When is the launch now, and why did it move?
+    source_context: 'Decisions from the September 12 launch sync: the launch moves from October 1 to October
+      8 because the payments integration needs another week of testing. Maria owns the release checklist.
+      Dev will draft the announcement by October 3. The marketing budget stays at 20,000 dollars.'
+    model_output: The launch moved to October 8 because the payments integration needs more testing and
+      the legal review is running late.
+  expect:
+    answers_request: true
+    supported_by_context: false
+    contradicts_context: false
+    complete: true
+  note: The extra detail may be true elsewhere, but the source does not state it.
+- id: meeting_off_topic
+  tags:
+  - meeting
+  - off_topic
+  state:
+    user_request: When is the launch now, and why did it move?
+    source_context: 'Decisions from the September 12 launch sync: the launch moves from October 1 to October
+      8 because the payments integration needs another week of testing. Maria owns the release checklist.
+      Dev will draft the announcement by October 3. The marketing budget stays at 20,000 dollars.'
+    model_output: Maria owns the release checklist and Dev is drafting the announcement.
+  expect:
+    answers_request: false
+    supported_by_context: true
+    contradicts_context: false
+    complete: false
+  note: The claims come from the source, so they are supported, but they answer a different question.
+- id: meeting_refusal
+  tags:
+  - meeting
+  - refusal
+  - ambiguous
+  state:
+    user_request: When is the launch now, and why did it move?
+    source_context: 'Decisions from the September 12 launch sync: the launch moves from October 1 to October
+      8 because the payments integration needs another week of testing. Maria owns the release checklist.
+      Dev will draft the announcement by October 3. The marketing budget stays at 20,000 dollars.'
+    model_output: The notes don't say anything about the launch date.
+  expect:
+    answers_request: false
+    supported_by_context: null
+    contradicts_context: null
+    complete: false
+  note: Whether a refusal makes supported or contradicting claims is debatable, so both are unlabeled.
+- id: meeting_hedged
+  tags:
+  - meeting
+  - positive
+  - hedged
+  state:
+    user_request: When is the launch now, and why did it move?
+    source_context: 'Decisions from the September 12 launch sync: the launch moves from October 1 to October
+      8 because the payments integration needs another week of testing. Maria owns the release checklist.
+      Dev will draft the announcement by October 3. The marketing budget stays at 20,000 dollars.'
+    model_output: From the notes, it sounds like October 8, a week later than planned, to give the payments
+      integration more testing time.
+  expect:
+    answers_request: true
+    supported_by_context: true
+    contradicts_context: false
+    complete: true
+- id: meeting_wrong_number
+  tags:
+  - meeting
+  - contradiction
+  - numbers
+  state:
+    user_request: When is the launch now, and why did it move?
+    source_context: 'Decisions from the September 12 launch sync: the launch moves from October 1 to October
+      8 because the payments integration needs another week of testing. Maria owns the release checklist.
+      Dev will draft the announcement by October 3. The marketing budget stays at 20,000 dollars.'
+    model_output: The launch moved to October 3 so the payments integration can be tested.
+  expect:
+    answers_request: true
+    supported_by_context: false
+    contradicts_context: true
+  note: 'Completeness is unlabeled: the answer covers both parts, but with a wrong number.'

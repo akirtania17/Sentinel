@@ -34,3 +34,23 @@ def test_agent_action_example() -> None:
 def test_agent_action_matrix_is_current() -> None:
     result = _run("evals/agent_action/generate_matrix.py", "--check")
     assert result.returncode == 0, result.stderr
+
+
+def test_output_verification_example() -> None:
+    result = _run("examples/output_verification/main.py")
+    assert result.returncode == 0, result.stderr
+    out = result.stdout
+    assert "ACCEPT: the answer is on topic, grounded, and complete" in out
+    assert "REGENERATE: the answer contradicts the source" in out
+    assert "ESCALATE:" in out
+    assert out.count("facts:") == 5
+
+
+def test_trace_semantics_example(tmp_path: Path) -> None:
+    events = tmp_path / "events.jsonl"
+    result = _run("examples/trace_semantics/main.py", "--events", str(events))
+    assert result.returncode == 0, result.stderr
+    out = result.stdout
+    assert "scope_drift" in out
+    assert "repetition" in out
+    assert len(events.read_text().splitlines()) == 7

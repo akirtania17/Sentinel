@@ -1,0 +1,40 @@
+format: sentinel/predicates/v1
+name: handbook_questions
+description: Twelve yes/no questions about one employee handbook, for the batching benchmark.
+predicates:
+  core_hours_in_local_time:
+    kind: noul
+    question: Does `handbook` say core hours are in each employee's local time zone?
+  fully_remote_needs_director:
+    kind: noul
+    question: Does `handbook` require a director's approval for a fully remote arrangement?
+  pto_carryover_unlimited:
+    kind: noul
+    question: Does `handbook` let employees carry over all unused paid time off?
+  sick_leave_capped:
+    kind: noul
+    question: Does `handbook` put a limit on how much sick leave an employee can take?
+  parental_leave_in_blocks:
+    kind: noul
+    question: Does `handbook` allow parental leave to be split into several blocks?
+  alcohol_reimbursed:
+    kind: noul
+    question: Does `handbook` allow alcohol to be reimbursed as a business expense?
+  equipment_kept_after_leaving:
+    kind: noul
+    question: Does `handbook` let employees keep company-funded equipment when they leave?
+  mfa_required:
+    kind: noul
+    question: Does `handbook` require multi-factor authentication for company systems?
+  customer_data_on_personal_devices:
+    kind: noul
+    question: Does `handbook` allow customer data on personal devices?
+  conference_travel_from_learning:
+    kind: noul
+    question: Does `handbook` charge conference travel to the learning budget?
+  raises_in_september:
+    kind: noul
+    question: Does `handbook` say compensation changes can be decided in the September review cycle?
+  pto_paid_out_on_exit:
+    kind: noul
+    question: Does `handbook` pay out unused paid time off when an employee leaves?

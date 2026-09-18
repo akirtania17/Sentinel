@@ -370,18 +370,27 @@ def _detail(metrics: PredicateMetrics) -> str:
             f"fragile {len(metrics.fragile)}"
         )
     if isinstance(metrics, ChoiceMetrics):
-        coverage = ""
+        text = f"{len(metrics.options)} options"
         if metrics.at_min_confidence is not None:
             row = metrics.at_min_confidence
-            coverage = (
+            text += (
                 f", at min confidence {fmt(metrics.min_confidence)}: coverage {fmt(row.coverage)}, "
                 f"accuracy {fmt(row.accuracy)}"
             )
-        return f"{len(metrics.options)} options{coverage}"
-    return (
-        f"within one level {fmt(metrics.within_one)}, MAE {fmt(metrics.mae)}, "
-        f"ranges satisfied {fmt(metrics.range_satisfaction)} of {metrics.range_labeled}"
-    )
+        return text
+    parts: list[str] = []
+    if metrics.exact_labeled:
+        parts.append(
+            f"exact level accuracy {fmt(metrics.exact_accuracy)}, "
+            f"within one level {fmt(metrics.within_one)}, MAE {fmt(metrics.mae)} "
+            f"({metrics.exact_labeled} cases)"
+        )
+    if metrics.range_labeled:
+        parts.append(
+            f"ranges satisfied {fmt(metrics.range_satisfaction)}, mean distance {fmt(metrics.range_mae)} "
+            f"({metrics.range_labeled} cases)"
+        )
+    return "; ".join(parts) or "no labeled cases"
 
 
 def _metric_label(metrics: PredicateMetrics) -> str:
@@ -411,8 +420,9 @@ def render_report(report: EvalReport, console: Console, *, details: bool = False
     """Print a report summary (and, with ``details``, sweeps, matrices and calibration)."""
     models = ", ".join(report.models_resolved) or "none"
     console.print(
-        f"[bold]{escape(report.suite)}[/]  {report.predicate_set} {report.predicate_set_fingerprint[:23]}  "
-        f"model {escape(models)} (requested {escape(report.model_requested)})"
+        f"[bold]suite {escape(report.suite)}[/]  predicate set {escape(report.predicate_set)} "
+        f"{report.predicate_set_fingerprint[:23]}  model {escape(models)} "
+        f"(requested {escape(report.model_requested)})"
     )
     counted = f"{report.cases_evaluated} of {report.cases_selected} cases evaluated"
     if report.cases_failed:
@@ -422,24 +432,38 @@ def render_report(report: EvalReport, console: Console, *, details: bool = False
     console.print(counted, markup=False)
 
     table = Table(box=box.SIMPLE_HEAD, show_edge=False, pad_edge=False)
-    for column in ("predicate", "kind", "labeled", "metric", "value", "detail"):
-        table.add_column(column, no_wrap=column != "detail")
+    for column in ("predicate", "kind", "labeled", "metric", "value"):
+        table.add_column(column, no_wrap=True)
     for predicate_id, metrics in report.predicates.items():
         _, value = metrics.headline()
-        table.add_row(
-            predicate_id,
-            metrics.kind,
-            str(_labeled(metrics)),
-            _metric_label(metrics),
-            fmt(value),
-            _detail(metrics),
-        )
+        table.add_row(predicate_id, metrics.kind, str(_labeled(metrics)), _metric_label(metrics), fmt(value))
     console.print(table)
 
-    nouls = {pid: m for pid, m in report.predicates.items() if isinstance(m, NoulMetrics)}
-    if nouls:
+    noul_rows = {pid: m for pid, m in report.predicates.items() if isinstance(m, NoulMetrics)}
+    if noul_rows:
+        quality = Table(box=box.SIMPLE_HEAD, show_edge=False, pad_edge=False)
+        for column in ("noul", "precision", "recall", "ROC-AUC", "PR-AUC", "Brier", "ECE", "fragile"):
+            quality.add_column(column, no_wrap=True, justify="left" if column == "noul" else "right")
+        for predicate_id, metrics in noul_rows.items():
+            at = metrics.at_threshold
+            quality.add_row(
+                predicate_id,
+                fmt(at.precision),
+                fmt(at.recall),
+                fmt(metrics.roc_auc),
+                fmt(metrics.pr_auc),
+                fmt(metrics.brier, 3),
+                fmt(metrics.ece, 3),
+                str(len(metrics.fragile)),
+            )
+        console.print(quality)
+    for predicate_id, metrics in report.predicates.items():
+        if not isinstance(metrics, NoulMetrics):
+            console.print(f"  {predicate_id}: {_detail(metrics)}", markup=False)
+
+    if noul_rows:
         console.print("[bold]Thresholds are empirical: pick them per application risk.[/]")
-        for predicate_id, metrics in nouls.items():
+        for predicate_id, metrics in noul_rows.items():
             best, safe = metrics.best_f1, metrics.best_recall_at_fpr
             console.print(
                 f"  {predicate_id}: {best.objective} at {fmt(best.threshold)} (F1 {fmt(best.value)}); "

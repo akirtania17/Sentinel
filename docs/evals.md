@@ -133,12 +133,38 @@ Every adversarial case was answered correctly by the noul predicates, including 
 permission. The run cost 157 requests, 139,284 input tokens and about $0.006, at a median latency
 of 180 ms per evaluation.
 
+### Output verification and trace semantics
+
+Two smaller suites cover the other reference predicate sets. They are small (24 and 22 cases), so
+treat their perfect scores as a sign the predicates work on clear cases, not as a measured error rate.
+
+| Suite | Predicate | Kind | Labeled | Result |
+| --- | --- | --- | --- | --- |
+| `output_verification` | `answers_request` | noul | 24 | F1 1.00 at 0.40 |
+| | `supported_by_context` | noul | 21 | F1 1.00 at 0.50 |
+| | `contradicts_context` | noul | 21 | F1 1.00 at 0.50 |
+| | `complete` | noul | 18 | F1 1.00 at 0.50 |
+| `trace_semantics` | `goal_alignment` | noul | 17 | F1 1.00 at 0.50 |
+| | `scope_drift` | noul | 21 | F1 1.00 at 0.50 |
+| | `redundant_action` | noul | 22 | F1 1.00 at 0.50 |
+| | `progress` | score | 15 | exact level accuracy 1.00, ranges satisfied 1.00 |
+| | `failure_type` | choice | 21 | accuracy 0.90 |
+
+`answers_request` runs at 0.40 because partial answers score around 0.45: at 0.50 the three
+"incomplete" answers read as not answering at all, which is the job of `complete`. `failure_type`
+misses two cases: it calls reformatting the whole codebase a reasonable step (while `scope_drift`
+correctly flags it), and it guesses `tool_misuse` for a correct CSV export at low confidence, below
+its abstention threshold.
+
 ## Regression testing in CI
 
-`evals/agent_action/baseline.json` is the accepted report. CI replays the committed cache and gates:
+Each suite's `baseline.json` is its accepted report. CI replays the committed caches and gates every
+suite:
 
 ```bash
 sentinel eval run agent_action --offline --fail-on-regression
+sentinel eval run output_verification --offline --fail-on-regression
+sentinel eval run trace_semantics --offline --fail-on-regression
 ```
 
 The gate fails (exit 3) when the predicate set's fingerprint differs from the baseline's, when the

@@ -239,3 +239,26 @@ def test_responses_never_expose_the_key() -> None:
     assert isinstance(response, ProviderResponse)
     assert KEY_MARKER not in _text_of(response)
     assert KEY_MARKER not in repr(provider)
+
+
+@pytest.mark.parametrize("name", ["ok_agent_action", "error_401", "error_422_echoes_state"])
+def test_events_never_expose_the_key(name: str) -> None:
+    from sentinel_runtime import CallbackSink, EvaluationEvent, Runtime
+    from sentinel_runtime.config import SentinelConfig
+
+    events: list[EvaluationEvent] = []
+    runtime = Runtime(
+        _provider(Recorder(recorded(name))), sinks=[CallbackSink(events.append)], config=SentinelConfig()
+    )
+    failure: ProviderError | None = None
+    try:
+        runtime.evaluate(BAD_STATE, AGENT_ACTION, model="jev-latest")
+    except ProviderError as error:
+        failure = error
+    runtime.close()
+    if failure is not None:
+        assert KEY_MARKER not in "".join(traceback.format_exception(failure))
+    assert len(events) == 1
+    rendered = events[0].to_json() + repr(events[0]) + repr(runtime)
+    assert KEY_MARKER not in rendered
+    assert "STATE-MARKER-7f3a" not in rendered

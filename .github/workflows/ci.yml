@@ -38,8 +38,11 @@ jobs:
         run: uv run basedpyright
       - name: Test
         run: uv run pytest -m "not live"
-      - name: Evaluation regression (offline, from the committed cache)
-        run: uv run sentinel eval run agent_action --offline --fail-on-regression
+      - name: Evaluation regression (offline, from the committed caches)
+        run: |
+          for suite in agent_action output_verification trace_semantics; do
+            uv run sentinel eval run "$suite" --offline --fail-on-regression
+          done
       - name: Build
         run: uv build
 

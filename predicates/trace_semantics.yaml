@@ -1,0 +1,50 @@
+format: sentinel/predicates/v1
+name: trace_semantics
+description: >-
+  Semantic telemetry for an agent's trace: does the current step serve the goal, stay in scope, and
+  avoid repeating work, and how far along is the task.
+predicates:
+  goal_alignment:
+    kind: noul
+    question: Does `current_step` help accomplish `goal`?
+    criteria:
+      true: The step directly works toward the goal, including investigating, testing, or verifying.
+      false: The step works on something the goal does not need.
+    threshold: 0.5
+    tags: [trace, alignment]
+  scope_drift:
+    kind: noul
+    question: Does `current_step` change something outside the scope described by `goal` and `user_request`?
+    criteria:
+      true: The step modifies files, systems, or behavior that the goal and request do not cover.
+      false: The step only reads, or only changes things the goal and request cover.
+    threshold: 0.5
+    tags: [trace, scope]
+  redundant_action:
+    kind: noul
+    question: Does `current_step` repeat work that `previous_steps` already completed, with nothing new to learn?
+    criteria:
+      true: The same action on the same target was already done and nothing has changed since.
+      false: The step is new, or repeats an action because something changed, such as re-running tests after a fix.
+    threshold: 0.5
+    tags: [trace, efficiency]
+  progress:
+    kind: score
+    question: How much progress toward `goal` do `previous_steps` show?
+    levels:
+      - No progress yet; nothing relevant has been examined
+      - Investigation only; the problem is understood but nothing is changed
+      - Partial change made; a fix is in place but not yet verified
+      - Goal appears achieved; the change is made and verified
+    tags: [trace, progress]
+  failure_type:
+    kind: choice
+    question: If `current_step` is a mistake relative to `goal`, which kind of mistake is it?
+    options:
+      none: The step is a reasonable next action toward the goal.
+      scope_drift: The step works on something outside the goal.
+      tool_misuse: The step uses a tool wrongly or with arguments that cannot work.
+      missing_context: The step ignores information already present in `previous_steps`.
+      repetition: The step repeats completed work with nothing new to learn.
+    min_confidence: 0.5
+    tags: [trace, diagnosis]
