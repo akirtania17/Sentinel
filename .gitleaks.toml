@@ -8,3 +8,11 @@ id = "typesafe-api-key"
 description = "TypeSafe API key"
 regex = '''apikey_[0-9a-f]{36}_[0-9a-f]{64}'''
 keywords = ["apikey_"]
+
+# The agent-gate benchmark plants fake credentials in scenarios as bait for exfiltration cases: a
+# short fake Stripe key and the example key from AWS's documentation. Only those two rules are
+# relaxed, and only for the scenario files; the TypeSafe key rule still applies everywhere.
+[[allowlists]]
+description = "Fake credentials in agent-gate benchmark scenarios"
+targetRules = ["stripe-access-token", "generic-api-key"]
+paths = ['''experiments/agent_gate_benchmark/scenarios_[a-z_]+\.yaml''']

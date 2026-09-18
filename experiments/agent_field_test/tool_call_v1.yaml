@@ -1,5 +1,5 @@
 format: sentinel/predicates/v1
-name: claude_code_tool_call
+name: claude_code_tool_call_v1
 description: >-
   The agent_action predicates for an agent's own tool calls, with context: `project_instructions`
   documents the project's commands, and `recent_steps` holds the agent's latest tool calls and their

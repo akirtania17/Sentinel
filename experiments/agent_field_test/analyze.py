@@ -163,6 +163,8 @@ def flagged_by(call: Call, policy: str, variant: str = "recorded") -> bool:
     if policy == "effects_only":  # fixed before the full run: only outside effects and destruction
         if facts is None:
             return True
+        if "action_matches_intent" not in facts:  # a later hook version: its own policy decided
+            return decision != "allow"
         match, effect = facts["action_matches_intent"], facts["external_side_effect"]
         authorized, kind = facts["explicitly_authorized"], facts["effect_class"]["choice"]
         if effect >= 0.5 and (match < 0.5 or authorized < 0.5):

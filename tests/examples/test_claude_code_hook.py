@@ -8,21 +8,24 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
-from sentinel_runtime import PredicateSet, Runtime
-from sentinel_runtime.config import SentinelConfig
+from sentinel_runtime import PredicateSet
 from sentinel_runtime.lint import lint_predicate_set
-from sentinel_runtime.providers import FakeProvider, choice_answer, noul_answer, score_answer
 
 REPO = Path(__file__).resolve().parents[2]
 HOOK = REPO / "examples" / "claude_code" / "hook.py"
 sys.path.insert(0, str(HOOK.parent))
 sys.path.insert(0, str(REPO / "experiments" / "agent_field_test"))
+sys.path.insert(0, str(REPO / "experiments" / "agent_gate_benchmark"))
 
 import analyze  # noqa: E402
+import bench  # noqa: E402
 import hook  # noqa: E402
 
-TOOL_CALL = PredicateSet.from_file(HOOK.parent / "tool_call.yaml")
+INTENT = PredicateSet.from_file(HOOK.parent / "intent.yaml")
+CONTEXT = PredicateSet.from_file(HOOK.parent / "context.yaml")
 
 
 def _line(kind: str, content: Any, **extra: Any) -> str:
@@ -54,42 +57,76 @@ def test_steps_are_the_calls_before_the_pending_one() -> None:
     assert [step["tool"] for step in latest] == ["Read", "Bash"]
 
 
-def test_tool_call_predicates_are_lint_clean() -> None:
+@pytest.mark.parametrize("predicate_set", [INTENT, CONTEXT], ids=["intent", "context"])
+def test_hook_predicates_are_lint_clean(predicate_set: PredicateSet) -> None:
     state: dict[str, Any] = {
         "user_request": "r",
         "proposed_action": {},
         "project_instructions": "",
         "recent_steps": [],
     }
-    assert lint_predicate_set(TOOL_CALL, state=state) == []
+    assert lint_predicate_set(predicate_set, state=state) == []
 
 
-def _evaluate(match: float, side_effect: float, authorized: float, kind: str) -> Any:
-    options = ["read_only", "local_change", "external_communication", "destructive_or_financial", "other"]
-    answers = {
-        "action_matches_intent": noul_answer(match),
-        "external_side_effect": noul_answer(side_effect),
-        "explicitly_authorized": noul_answer(authorized),
-        "effect_class": choice_answer({o: 1.0 if o == kind else 0.0 for o in options}, confidence=0.9),
-        "severity": score_answer([0.2, 0.2, 0.2, 0.2, 0.2]),
-    }
-    runtime = Runtime(FakeProvider(answers), model="jev-1.13.0", config=SentinelConfig())
-    return runtime.evaluate({"user_request": "r", "proposed_action": {}}, TOOL_CALL)
+def test_without_output_keeps_commands_and_drops_results() -> None:
+    step: dict[str, Any] = {"tool": "Bash", "arguments": {"command": "ls"}, "result": "x"}
+    state: dict[str, Any] = {"user_request": "r", "recent_steps": [step]}
+    assert hook.without_output(state)["recent_steps"] == [{"tool": "Bash", "arguments": {"command": "ls"}}]
+    assert step["result"] == "x"
+
+
+def _facts(kind: str = "external_communication", **values: float) -> dict[str, Any]:
+    scores: dict[str, float] = dict.fromkeys(hook.CHECKS, 0.05)
+    scores |= {"external_side_effect": 0.95, "requested": 0.95}
+    scores |= values
+    return {**scores, "effect_class": {"choice": kind, "confidence": 0.9}}
 
 
 @pytest.mark.parametrize(
     ("facts", "action"),
     [
-        ((0.3, 0.02, 0.2, "read_only"), "allow"),  # exploring code never interrupts
-        ((0.9, 0.97, 0.9, "external_communication"), "allow"),
-        ((0.2, 0.97, 0.1, "external_communication"), "deny"),
-        ((0.8, 0.97, 0.3, "external_communication"), "confirm"),
-        ((0.8, 0.97, 0.7, "destructive_or_financial"), "confirm"),
-        ((0.9, 0.97, 0.9, "destructive_or_financial"), "allow"),
+        (_facts("read_only", external_side_effect=0.02, requested=0.2), "allow"),  # exploring never stops
+        (_facts("local_change", external_side_effect=0.1), "allow"),  # requested workspace edit
+        (_facts("local_change", external_side_effect=0.1, requested=0.1), "deny"),  # unrequested script
+        (_facts(), "allow"),  # requested, intended targets
+        (_facts(requested=0.2), "deny"),
+        (_facts(follows_data_instruction=0.8), "deny"),
+        (
+            _facts("read_only", external_side_effect=0.02, sends_data_away=0.9),
+            "allow",
+        ),  # reading a bad script
+        (_facts(sends_data_away=0.9), "deny"),
+        (_facts(condition_blocked=0.7), "deny"),
+        (_facts(exceeds_scope=0.7), "confirm"),
+        (_facts(wrong_detail=0.7), "confirm"),
     ],
 )
-def test_coding_agent_policy(facts: tuple[float, float, float, str], action: str) -> None:
-    assert hook.decide_for_coding_agent(_evaluate(*facts)).action == action
+def test_coding_agent_policy(facts: dict[str, Any], action: str) -> None:
+    assert hook.decide_for_coding_agent(facts).action == action
+
+
+def test_unsure_only_when_a_near_threshold_answer_would_change_the_decision() -> None:
+    confident = _facts()
+    assert not hook.unsure(confident, hook.decide_for_coding_agent(confident))
+    borderline = _facts(requested=0.55)
+    assert hook.unsure(borderline, hook.decide_for_coding_agent(borderline))
+    irrelevant = _facts("read_only", external_side_effect=0.02, wrong_detail=0.45)
+    assert not hook.unsure(irrelevant, hook.decide_for_coding_agent(irrelevant))
+
+
+@settings(max_examples=300)
+@given(
+    kind=st.sampled_from(
+        ["read_only", "local_change", "external_communication", "destructive_or_financial", "other"]
+    ),
+    values=st.lists(st.floats(0, 1), min_size=7, max_size=7),
+)
+def test_hook_policy_matches_the_benchmarked_policy(kind: str, values: list[float]) -> None:
+    names = ("external_side_effect", "requested", *hook.CHECKS)
+    facts = {**dict(zip(names, values, strict=True)), "effect_class": {"choice": kind, "confidence": 0.9}}
+    assert (hook.decide_for_coding_agent(facts).action == "allow") == (
+        bench.POLICIES["focused3"](facts) == "allow"
+    )
 
 
 def _run_hook(mode: str, tmp_path: Path) -> subprocess.CompletedProcess[str]:

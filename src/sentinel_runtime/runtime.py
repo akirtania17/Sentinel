@@ -36,6 +36,9 @@ from sentinel_runtime.telemetry import EvaluationEvent, TelemetrySink
 
 logger = logging.getLogger("sentinel_runtime")
 
+MALFORMED_RETRIES = 1
+"""Malformed answers are rare and transient (about 1 in 700 requests in testing), so one retry."""
+
 _PROBE = noul("probe", question="Is this text a greeting?")
 
 
@@ -273,7 +276,9 @@ class Runtime:
             estimated_input_tokens=chunk.estimated_input_tokens,
         )
 
-    def _outcome(self, chunk: Chunk, request: ProviderRequest, response: ProviderResponse) -> _Outcome:
+    def _outcome(
+        self, chunk: Chunk, request: ProviderRequest, response: ProviderResponse, retries: int = 0
+    ) -> _Outcome:
         results = normalize_answers(chunk.predicates, response.answers, provider=self._provider.name)
         call = ProviderCall(
             request_id=response.request_id,
@@ -284,7 +289,7 @@ class Runtime:
             estimated_input_tokens=chunk.estimated_input_tokens,
             latency_ms=response.latency_ms,
             predicate_ids=tuple(predicate.id for predicate in chunk.predicates),
-            attempts=response.attempts,
+            attempts=response.attempts + retries,
             replayed=response.replayed,
         )
         return _Outcome(call=call, results=results)
@@ -299,34 +304,54 @@ class Runtime:
 
     def _run_chunk(self, prepared: _Prepared, chunk: Chunk, timeout: float | None) -> list[_Outcome]:
         request = self._request(prepared, chunk, timeout)
-        failure: ProviderError | None = None
-        response: ProviderResponse | None = None
+        for retries in range(MALFORMED_RETRIES + 1):
+            failure: ProviderError | None = None
+            response: ProviderResponse | None = None
+            try:
+                response = self._provider.evaluate(request)
+            except ProviderError as error:
+                failure = error
+            if failure is not None:
+                left, right = self._split_or_raise(prepared, chunk, failure)
+                return self._run_chunk(prepared, left, timeout) + self._run_chunk(prepared, right, timeout)
+            assert response is not None
+            outcome = self._checked_outcome(chunk, request, response, retries)
+            if outcome is not None:
+                return [outcome]
+        raise AssertionError("unreachable")  # pragma: no cover
+
+    def _checked_outcome(
+        self, chunk: Chunk, request: ProviderRequest, response: ProviderResponse, retries: int
+    ) -> _Outcome | None:
+        """The outcome, or None when the answers were malformed and one more attempt is allowed."""
         try:
-            response = self._provider.evaluate(request)
+            return self._outcome(chunk, request, response, retries)
         except ProviderError as error:
-            failure = error
-        if failure is not None:
-            left, right = self._split_or_raise(prepared, chunk, failure)
-            return self._run_chunk(prepared, left, timeout) + self._run_chunk(prepared, right, timeout)
-        assert response is not None
-        return [self._outcome(chunk, request, response)]
+            if error.kind != "malformed_response" or retries >= MALFORMED_RETRIES:
+                raise
+            logger.warning("provider returned malformed answers; retrying once (%s)", error.detail)
+            return None
 
     async def _arun_chunk(self, prepared: _Prepared, chunk: Chunk, timeout: float | None) -> list[_Outcome]:
         request = self._request(prepared, chunk, timeout)
-        failure: ProviderError | None = None
-        response: ProviderResponse | None = None
-        try:
-            response = await self._provider.aevaluate(request)
-        except ProviderError as error:
-            failure = error
-        if failure is not None:
-            left, right = self._split_or_raise(prepared, chunk, failure)
-            halves = await asyncio.gather(
-                self._arun_chunk(prepared, left, timeout), self._arun_chunk(prepared, right, timeout)
-            )
-            return halves[0] + halves[1]
-        assert response is not None
-        return [self._outcome(chunk, request, response)]
+        for retries in range(MALFORMED_RETRIES + 1):
+            failure: ProviderError | None = None
+            response: ProviderResponse | None = None
+            try:
+                response = await self._provider.aevaluate(request)
+            except ProviderError as error:
+                failure = error
+            if failure is not None:
+                left, right = self._split_or_raise(prepared, chunk, failure)
+                halves = await asyncio.gather(
+                    self._arun_chunk(prepared, left, timeout), self._arun_chunk(prepared, right, timeout)
+                )
+                return halves[0] + halves[1]
+            assert response is not None
+            outcome = self._checked_outcome(chunk, request, response, retries)
+            if outcome is not None:
+                return [outcome]
+        raise AssertionError("unreachable")  # pragma: no cover
 
     def _usage(self, calls: tuple[ProviderCall, ...]) -> Usage:
         def total(values: list[int | None]) -> int | None:

@@ -162,19 +162,27 @@ def test_cache_miss_exits_4(state_file: Path, predicates_path: Path, tmp_path: P
     assert "not in the cache" in result.stderr
 
 
-def test_malformed_cached_answer_is_a_provider_error(
-    tmp_path: Path, state_file: Path, predicates_path: Path
-) -> None:
+def test_malformed_answers_are_retried_once_and_never_cached(tmp_path: Path, predicates_path: Path) -> None:
     path = tmp_path / "bad.jsonl"
-    provider = CachingProvider(
-        FakeProvider({**ANSWERS, "action_matches_intent": {"type": "noul", "noul": 3}}, name="typesafe"), path
-    )
-    runtime = Runtime(provider, model=MODEL, config=SentinelConfig())
+    inner = FakeProvider({**ANSWERS, "action_matches_intent": {"type": "noul", "noul": 3}}, name="typesafe")
+    runtime = Runtime(CachingProvider(inner, path), model=MODEL, config=SentinelConfig())
     with pytest.raises(Exception, match="malformed_response"):
         runtime.evaluate(STATE, PredicateSet.from_file(predicates_path))
     runtime.close()
+    assert len(inner.requests) == 2
+    assert not path.exists() or path.read_text() == ""
+
+
+def test_malformed_cached_answer_is_a_provider_error(
+    state_file: Path, predicates_path: Path, cache: Path
+) -> None:
+    # A malformed answer already in a cache (from an older version, or edited by hand) is replayed as
+    # a provider error, never as a judgment.
+    record = json.loads(cache.read_text().splitlines()[0])
+    record["answers"]["action_matches_intent"] = {"type": "noul", "noul": 3}
+    cache.write_text(json.dumps(record) + "\n")
     result = runner.invoke(
-        app, _evaluate(state_file, "-p", predicates_path, "--model", MODEL, "--cache", path, "--offline")
+        app, _evaluate(state_file, "-p", predicates_path, "--model", MODEL, "--cache", cache, "--offline")
     )
     assert result.exit_code == 2
     assert "malformed_response" in result.stderr

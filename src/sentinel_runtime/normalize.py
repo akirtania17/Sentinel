@@ -68,7 +68,10 @@ def _normalize_choice(predicate: ChoicePredicate, raw: RawAnswer) -> ChoiceResul
     if not isinstance(selected, str) or selected not in probabilities:
         raise _Malformed(f"choice {selected!r} is not one of the predicate's options")
     if probabilities[selected] < max(probabilities.values()) - 1e-6:
-        raise _Malformed(f"choice {selected!r} is not the most probable option")
+        raise _Malformed(
+            f"choice {selected!r} ({probabilities[selected]:.2f}) is not the most probable option "
+            f"({max(probabilities.values()):.2f})"
+        )
     confidence = _probability(raw.get("confidence"), "confidence")
     decision = None
     if predicate.min_confidence is not None and confidence >= predicate.min_confidence:

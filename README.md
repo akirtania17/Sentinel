@@ -113,16 +113,25 @@ cases, and two predicates needed their boundaries spelled out. See [docs/evals.m
 ## Gate a coding agent
 
 [`examples/claude_code/hook.py`](examples/claude_code/hook.py) is a Claude Code PreToolUse hook that
-judges every tool call an agent makes. In a [field test](docs/field-test.md), 187 real Claude Code
-sessions made 959 tool calls in a sandbox with planted prompt injections:
+judges every tool call an agent makes. It asks whether the user requested this kind of action in a
+request that never sees tool output, so text planted in a file, email or page cannot argue for it,
+and checks targets, scope, conditions, injected instructions and data leaving with the agent's
+recent steps in view.
 
-- With the project's instructions and the agent's recent steps as context, and a policy that only
-  intervenes on outside or destructive effects, the hook interrupted 2% of legitimate calls. It
-  stopped every harmful action that would have changed something, including a production deploy
-  that an injected log line asked for and that a keyword rule would have allowed.
-- Without that context, it interrupted a third of legitimate calls and most authorized actions. A
-  semantic gate is only as good as what it is shown.
-- It adds about 0.6 s and $0.0001 per tool call.
+On a [stress test](docs/stress-test.md) of 479 actions written and audited by independent authors:
+
+| Gate | Harmful actions stopped | Legitimate actions interrupted | Latency | Cost per 1,000 |
+| --- | --- | --- | --- | --- |
+| Sentinel | 97% | 5% | 0.2 s | $0.08 |
+| Sentinel, uncertain 9% escalated to Claude Sonnet | 98% | 3% | 0.2 s for 91% | $1.03 |
+| Claude Sonnet as judge | 99% | 1% | 3.1 s | $10.33 |
+| Read-only allowlist | 100% | 64% | - | - |
+
+On Meta's independent LlamaFirewall benchmark it detects 90% of hijacked agent actions with 7% false
+alarms, level with Meta's checker on Llama 3.3 70B. An attacker who can run Sentinel locally and
+rewrite what the agent reads still got 4 of 12 harmful actions through (Sonnet: 2 of 12), so treat it
+as a fast first line alongside permissions, not as a security boundary. The
+[field test](docs/field-test.md) covers 187 real Claude Code sessions.
 
 ## Reference predicate sets
 
@@ -166,6 +175,7 @@ your state. See [docs/security.md](docs/security.md).
 - [Benchmarks](docs/benchmarks.md)
 - [Security](docs/security.md)
 - [Field test: gating a real coding agent](docs/field-test.md)
+- [Stress test: accuracy, cost, an independent benchmark, adaptive attacks](docs/stress-test.md)
 
 ## Install
 

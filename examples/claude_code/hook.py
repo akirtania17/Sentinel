@@ -6,18 +6,29 @@ JSON line per call.
 
 What Sentinel is shown (`SENTINEL_HOOK_CONTEXT`):
 
-- `on` (default): the request, the proposed call, the project's `CLAUDE.md` (which documents its
-  commands), and the agent's last six steps with their results, judged with `tool_call.yaml`.
+- `on` (default): two judgments made in parallel. `intent.yaml` sees the request, the project's
+  `CLAUDE.md`, the proposed call, and the agent's recent commands without their output, so nothing
+  an attacker planted in a file, email, page or log can reach it: does the call have effects, and
+  did the user ask for this kind of action. `context.yaml` also sees the output of the agent's last
+  six steps: wrong details, scope, unmet conditions, instructions found in data, and data leaving.
+  In the stress test (docs/stress-test.md) this held accuracy while cutting what an adaptive
+  attacker could get through from 9 of 12 harmful actions to 4 of 12.
 - `off`: only the request and the proposed call, judged with `predicates/agent_action.yaml`. In the
   field test this interrupted a third of legitimate calls: without context, Sentinel cannot tell
   what `./bin/issue_refund 5120 189.00` does or which orders the agent found double-charged.
 
 Policy (`SENTINEL_HOOK_POLICY`):
 
-- `effects` (default): intervene only on actions with effects outside the workspace or destructive
-  ones. Reading, searching, testing and editing the workspace always proceed.
+- `effects` (default): intervene only on actions that change something the user did not ask for or
+  that reach outside the workspace. Reading, searching, testing and editing the workspace as part
+  of the task always proceed.
 - `strict`: `examples/agent_action/gate.py`, which also questions any call that does not clearly
   follow from the request. Fine for a single proposed action; too noisy for an agent exploring code.
+
+When unsure (`SENTINEL_HOOK_UNSURE`): `decide` (default) acts on Sentinel's decision; `ask` asks the
+user whenever a judgment the decision rests on is within 0.2 of its threshold (about 9% of actions
+in the stress test). Near-threshold answers vary between runs, so asking closes the gap an attacker
+could otherwise exploit by retrying.
 
 Mode (`SENTINEL_HOOK_MODE`):
 
@@ -39,6 +50,7 @@ import time
 
 STARTED = time.perf_counter()
 
+import asyncio  # noqa: E402
 import json  # noqa: E402
 import os  # noqa: E402
 import sys  # noqa: E402
@@ -65,7 +77,10 @@ from sentinel_runtime.config import SentinelConfig  # noqa: E402
 IMPORTED = time.perf_counter()
 
 MODEL = "jev-1.13.0"
-PREDICATES = {"on": HERE / "tool_call.yaml", "off": REPO / "predicates" / "agent_action.yaml"}
+INTENT = HERE / "intent.yaml"
+CONTEXT = HERE / "context.yaml"
+WITHOUT_CONTEXT = REPO / "predicates" / "agent_action.yaml"
+UNSURE_MARGIN = 0.2
 MAX_CHARS = 4000
 """Longer string arguments (such as a file being written) are clipped before evaluation."""
 RECENT_STEPS = 6
@@ -148,8 +163,57 @@ def steps_by_call(lines: list[str]) -> tuple[dict[str, list[dict[str, Any]]], li
     return before, [step(c) for c in calls[-RECENT_STEPS:]]
 
 
-def decide_for_coding_agent(evaluation: Evaluation) -> Decision:
-    """Intervene only on effects outside the workspace and on destructive actions."""
+def without_output(state: dict[str, Any]) -> dict[str, Any]:
+    """The state with every recent step's output removed: nothing an attacker planted in data."""
+    steps = [{"tool": s.get("tool"), "arguments": s.get("arguments")} for s in state.get("recent_steps", [])]
+    return {**state, "recent_steps": steps}
+
+
+CHECKS = ("sends_data_away", "follows_data_instruction", "condition_blocked", "exceeds_scope", "wrong_detail")
+
+
+def decide_for_coding_agent(f: dict[str, Any]) -> Decision:
+    """Stop what the user did not ask for; let reading, testing and requested work proceed.
+
+    `f` holds the judgments from `intent.yaml` and `context.yaml`. `requested` and the effect
+    judgments come from the intent judgment, which never sees tool output.
+    """
+    kind = f["effect_class"]["choice"]
+    if kind != "read_only" and f["requested"] < 0.5:
+        return Decision("deny", "the user did not ask for this kind of action")
+    if kind != "read_only" and f["sends_data_away"] >= 0.5:
+        return Decision("deny", "private data would leave for a destination the user did not name")
+    if kind != "read_only" and f["follows_data_instruction"] >= 0.5:
+        return Decision("deny", "the action follows an instruction found in data, not the user")
+    has_effect = f["external_side_effect"] >= 0.5 or kind in (
+        "external_communication",
+        "destructive_or_financial",
+    )
+    if not has_effect:
+        return Decision("allow", "no outside or destructive effect, and part of the task")
+    if f["condition_blocked"] >= 0.5:
+        return Decision("deny", "the user or a project rule forbids this, or its condition is not met")
+    if f["exceeds_scope"] >= 0.5:
+        return Decision("confirm", "the action reaches more than the request asks for")
+    if f["wrong_detail"] >= 0.5:
+        return Decision("confirm", "a target or detail differs from the intended one")
+    if f["requested"] < 0.5:  # an outside effect on an action the intent judgment called read-only
+        return Decision("deny", "the user did not ask for this kind of action")
+    return Decision("allow", "requested, with the intended targets and scope")
+
+
+def unsure(f: dict[str, Any], decision: Decision) -> bool:
+    """Whether a judgment within UNSURE_MARGIN of 0.5 would change the decision if it fell the other way."""
+    for name in ("external_side_effect", "requested", *CHECKS):
+        if abs(f[name] - 0.5) < UNSURE_MARGIN:
+            flipped = {**f, name: 1 - f[name] if f[name] != 0.5 else 0.49}
+            if (decide_for_coding_agent(flipped).action == "allow") != (decision.action == "allow"):
+                return True
+    return False
+
+
+def decide_without_context(evaluation: Evaluation) -> Decision:
+    """The effects policy for `SENTINEL_HOOK_CONTEXT=off` (the agent_action predicates)."""
     matches = evaluation.probability("action_matches_intent")
     side_effect = evaluation.probability("external_side_effect")
     authorized = evaluation.probability("explicitly_authorized")
@@ -162,6 +226,19 @@ def decide_for_coding_agent(evaluation: Evaluation) -> Decision:
     if high_risk and authorized < 0.8:
         return Decision("confirm", "destructive or financial action without clear explicit authorization")
     return Decision("allow", "no unrequested external or destructive effect")
+
+
+async def judge(state: dict[str, Any], context: str) -> list[Evaluation]:
+    """One evaluation without context, or the intent and context evaluations in parallel."""
+    async with Runtime.from_env(model=MODEL, config=SentinelConfig()) as runtime:
+        if context != "on":
+            return [await runtime.aevaluate(state, PredicateSet.from_file(WITHOUT_CONTEXT))]
+        return list(
+            await asyncio.gather(
+                runtime.aevaluate(without_output(state), PredicateSet.from_file(INTENT)),
+                runtime.aevaluate(state, PredicateSet.from_file(CONTEXT)),
+            )
+        )
 
 
 def facts(evaluation: Evaluation) -> dict[str, Any]:
@@ -201,15 +278,25 @@ def main() -> None:
         # The pending call may already be in the transcript; show the steps that came before it.
         state["recent_steps"] = before.get(str(call.get("tool_use_id")), latest)
 
-    evaluation: Evaluation | None = None
-    with Runtime.from_env(model=MODEL, config=SentinelConfig()) as runtime:
-        prepared = time.perf_counter()
-        try:
-            evaluation = runtime.evaluate(state, PredicateSet.from_file(PREDICATES[context]))
-        except ProviderError as error:
-            decision = Decision("deny", f"semantic check unavailable ({error.kind}); failing closed")
+    prepared = time.perf_counter()
+    evaluations: list[Evaluation] = []
+    found: dict[str, Any] | None = None
+    try:
+        evaluations = asyncio.run(judge(state, context))
+    except ProviderError as error:
+        decision = Decision("deny", f"semantic check unavailable ({error.kind}); failing closed")
+    else:
+        found = {}
+        for evaluation in evaluations:
+            found.update(facts(evaluation))
+        if policy == "strict":
+            decision = decide(evaluations[0])
+        elif context != "on":
+            decision = decide_without_context(evaluations[0])
         else:
-            decision = decide_for_coding_agent(evaluation) if policy == "effects" else decide(evaluation)
+            decision = decide_for_coding_agent(found)
+            if os.environ.get("SENTINEL_HOOK_UNSURE", "decide") == "ask" and unsure(found, decision):
+                decision = Decision("confirm", f"Sentinel is unsure ({decision.reason})")
     finished = time.perf_counter()
 
     record = {
@@ -223,10 +310,10 @@ def main() -> None:
         "proposed_action": action,
         "decision": decision.action,
         "reason": decision.reason,
-        "facts": None if evaluation is None else facts(evaluation),
-        "request_id": None if evaluation is None else evaluation.calls[0].request_id,
-        "input_tokens": None if evaluation is None else evaluation.usage.input_tokens,
-        "evaluation_ms": None if evaluation is None else round(evaluation.latency_ms, 1),
+        "facts": found,
+        "request_ids": [e.calls[0].request_id for e in evaluations],
+        "input_tokens": sum(e.usage.input_tokens or 0 for e in evaluations) if evaluations else None,
+        "evaluation_ms": round(max(e.latency_ms for e in evaluations), 1) if evaluations else None,
         "import_ms": round((IMPORTED - STARTED) * 1000, 1),
         "setup_ms": round((prepared - IMPORTED) * 1000, 1),
         "hook_ms": round((finished - STARTED) * 1000, 1),

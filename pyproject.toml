@@ -84,7 +84,12 @@ ignore = ["S101"]
 [tool.basedpyright]
 include = ["src", "tests"]
 # Tests import the example hook and the field-test scripts, which are not packages.
-extraPaths = ["examples/agent_action", "examples/claude_code", "experiments/agent_field_test"]
+extraPaths = [
+    "examples/agent_action",
+    "examples/claude_code",
+    "experiments/agent_field_test",
+    "experiments/agent_gate_benchmark",
+]
 pythonVersion = "3.11"
 typeCheckingMode = "strict"
 reportMissingTypeStubs = false

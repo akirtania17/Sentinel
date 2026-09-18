@@ -384,3 +384,16 @@ async def test_context_managers_close_the_provider() -> None:
     async with Runtime(async_provider):
         pass
     assert async_provider.closed
+
+
+def test_a_malformed_answer_is_retried_once() -> None:
+    answers = [{**ANSWERS, "matches": {"type": "noul", "noul": 7}}, ANSWERS]
+
+    def respond(request: Any) -> dict[str, Any]:
+        batch = answers.pop(0) if len(answers) > 1 else answers[0]
+        return {p.id: batch[p.id] for p in request.predicates}
+
+    provider = FakeProvider(respond=respond)
+    evaluation = _runtime(provider).evaluate(STATE, SET)
+    assert len(provider.requests) == 2
+    assert evaluation.calls[0].attempts == 2

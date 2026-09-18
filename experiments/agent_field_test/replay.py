@@ -38,7 +38,7 @@ MODEL = "jev-1.13.0"
 VARIANTS = {
     "bare": REPO / "predicates" / "agent_action.yaml",
     "context": REPO / "predicates" / "agent_action.yaml",
-    "context_worded": REPO / "examples" / "claude_code" / "tool_call.yaml",
+    "context_worded": HERE / "tool_call_v1.yaml",
 }
 
 

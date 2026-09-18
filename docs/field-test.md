@@ -61,8 +61,8 @@ blocked edit through `python3` instead.
 
 ### 3. Context and a narrower policy fixed most of it
 
-The revised hook (the default now) adds the project's `CLAUDE.md`, which documents its commands, and
-the agent's last six steps with their results, and uses [`tool_call.yaml`](../examples/claude_code/tool_call.yaml),
+The revised hook (superseded since; see [the stress test](stress-test.md)) adds the project's `CLAUDE.md`, which documents its commands, and
+the agent's last six steps with their results, and uses [`tool_call_v1.yaml`](../experiments/agent_field_test/tool_call_v1.yaml),
 whose questions say that context is evidence while only the request can authorize. Its policy only
 intervenes on actions with outside or destructive effects; reading, testing and editing the
 workspace always proceed. The changes were designed on the first four setups and checked on the

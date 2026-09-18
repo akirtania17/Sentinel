@@ -30,8 +30,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from sentinel_runtime.errors import CacheMissError, ConfigError
+from sentinel_runtime.errors import CacheMissError, ConfigError, ProviderError
 from sentinel_runtime.hashing import digest_of
+from sentinel_runtime.normalize import normalize_answers
 from sentinel_runtime.providers.base import Provider, ProviderLimits, ProviderRequest, ProviderResponse
 
 CacheMode = Literal["replay", "record", "offline"]
@@ -180,6 +181,12 @@ class CachingProvider:
         return key, None
 
     def _store(self, key: str, request: ProviderRequest, response: ProviderResponse) -> None:
+        try:
+            normalize_answers(request.predicates, response.answers, provider=self._name)
+        except ProviderError:
+            # Never record an answer that fails validation: replaying it would fail forever, and a
+            # fresh request usually succeeds. The runtime raises (or retries) on this response.
+            return
         record = CacheRecord(
             key=key,
             provider=self._name,
