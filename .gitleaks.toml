@@ -15,4 +15,4 @@ keywords = ["apikey_"]
 [[allowlists]]
 description = "Fake credentials in agent-gate benchmark scenarios"
 targetRules = ["stripe-access-token", "generic-api-key"]
-paths = ['''experiments/agent_gate_benchmark/scenarios_[a-z_]+\.yaml''']
+paths = ['''experiments/agent_gate_benchmark/scenarios_[a-z0-9_]+\.yaml''']

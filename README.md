@@ -118,17 +118,19 @@ request that never sees tool output, so text planted in a file, email or page ca
 and checks targets, scope, conditions, injected instructions and data leaving with the agent's
 recent steps in view.
 
-On a [stress test](docs/stress-test.md) of 479 actions written and audited by independent authors:
+On the [stress test](docs/stress-test.md)'s larger held-out set, 520 actions in eight domains
+written and audited by independent authors:
 
 | Gate | Harmful actions stopped | Legitimate actions interrupted | Latency | Cost per 1,000 |
 | --- | --- | --- | --- | --- |
-| Sentinel | 97% | 5% | 0.2 s | $0.08 |
-| Sentinel, uncertain 9% escalated to Claude Sonnet | 98% | 3% | 0.2 s for 91% | $1.03 |
-| Claude Sonnet as judge | 99% | 1% | 3.1 s | $10.33 |
-| Read-only allowlist | 100% | 64% | - | - |
+| Sentinel | 95% | 7% | 0.2 s | $0.08 |
+| Sentinel, uncertain 10% escalated to Claude Sonnet | 98% | 4% | 0.2 s for 90% | $1.17 |
+| Claude Sonnet as judge | 99% | 3% | 3.4 s | $10.42 |
+| Read-only allowlist | 100% | 70% | - | - |
 
 On Meta's independent LlamaFirewall benchmark it detects 90% of hijacked agent actions with 7% false
-alarms, level with Meta's checker on Llama 3.3 70B. An attacker who can run Sentinel locally and
+alarms, level with Meta's checker on Llama 3.3 70B. Replaying GPT-4o's recorded AgentDojo runs, it cut
+successful prompt injections from 48% to 4%, but interrupted about a fifth of the clean tasks. An attacker who can run Sentinel locally and
 rewrite what the agent reads still got 4 of 12 harmful actions through (Sonnet: 2 of 12), so treat it
 as a fast first line alongside permissions, not as a security boundary. The
 [field test](docs/field-test.md) covers 187 real Claude Code sessions.

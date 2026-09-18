@@ -16,7 +16,8 @@ and that any stop in a clean run costs that task.
     uv run python experiments/agent_gate_benchmark/agentdojo.py RUNS_DIR GROUND_TRUTH.json --out DIR
 
 RUNS_DIR is one model's folder from AgentDojo's `runs/`. GROUND_TRUTH.json maps
-`suite/injection_task_N` to the injection's goal and ground-truth calls (see the stress-test doc).
+`suite/injection_task_N` to the injection's goal and ground-truth calls; agentdojo_ground_truth.py
+writes it.
 """
 
 import argparse

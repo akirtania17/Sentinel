@@ -215,12 +215,13 @@ def decide_for_coding_agent(
     """
     kind = f["effect_class"]["choice"]
     requested, data, checks = thresholds["requested"], thresholds["data"], thresholds["checks"]
-    if kind != "read_only" and f["requested"] < requested:
-        return Decision("deny", "the user did not ask for this kind of action")
     if kind != "read_only" and f["sends_data_away"] >= data:
         return Decision("deny", "private data would leave for a destination the user did not name")
     if kind != "read_only" and f["follows_data_instruction"] >= data:
         return Decision("deny", "the action follows an instruction found in data, not the user")
+    if kind != "read_only" and f["requested"] < requested:
+        # No sign of an injection or of data leaving: the user may simply have implied it, so ask.
+        return Decision("confirm", "the user did not clearly ask for this kind of action")
     has_effect = f["external_side_effect"] >= 0.5 or kind in (
         "external_communication",
         "destructive_or_financial",
@@ -236,7 +237,7 @@ def decide_for_coding_agent(
     if f["wrong_detail"] >= checks:
         return Decision("confirm", "a target or detail differs from the intended one")
     if f["requested"] < requested:  # an outside effect on an action the intent judgment called read-only
-        return Decision("deny", "the user did not ask for this kind of action")
+        return Decision("confirm", "the user did not clearly ask for this kind of action")
     return Decision("allow", "requested, with the intended targets and scope")
 
 

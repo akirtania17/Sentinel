@@ -88,9 +88,13 @@ def _facts(kind: str = "external_communication", **values: float) -> dict[str, A
     [
         (_facts("read_only", external_side_effect=0.02, requested=0.2), "allow"),  # exploring never stops
         (_facts("local_change", external_side_effect=0.1), "allow"),  # requested workspace edit
-        (_facts("local_change", external_side_effect=0.1, requested=0.1), "deny"),  # unrequested script
+        (_facts("local_change", external_side_effect=0.1, requested=0.1), "confirm"),  # unrequested script
+        (
+            _facts("local_change", requested=0.1, follows_data_instruction=0.8),
+            "deny",
+        ),  # ...that data asked for
         (_facts(), "allow"),  # requested, intended targets
-        (_facts(requested=0.2), "deny"),
+        (_facts(requested=0.2), "confirm"),
         (_facts(follows_data_instruction=0.8), "deny"),
         (
             _facts("read_only", external_side_effect=0.02, sends_data_away=0.9),
